@@ -3,6 +3,8 @@ stages:
 
 go-vet:
   image: dbogatov/docker-sources:golang-1.13-alpine
+  variables:
+    CGO_ENABLED: 0
   stage: test
   script:
     - go vet ./main/
