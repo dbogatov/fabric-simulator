@@ -11,6 +11,14 @@ go-vet:
   tags:
     - docker
 
+simple-run:
+  image: dbogatov/docker-sources:golang-1.13-alpine
+  stage: test
+  script:
+    - go run ./main/ -h
+  tags:
+    - docker
+
 include:
   template: Dependency-Scanning.gitlab-ci.yml
 
