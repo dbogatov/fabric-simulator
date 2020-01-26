@@ -9,7 +9,7 @@ type transferable interface {
 
 func recordBandwidth(from, to string, object transferable) {
 	// TODO
-	log.Infof("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
+	log.Debugf("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
 }
 
 /// Credentials

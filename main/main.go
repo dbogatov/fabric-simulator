@@ -105,7 +105,7 @@ func configureLogging(verbose bool) {
 	)
 	levelBackend := logging.AddModuleLevel(logging.NewLogBackend(os.Stdout, "", 0))
 	if verbose {
-		levelBackend.SetLevel(logging.INFO, "")
+		levelBackend.SetLevel(logging.DEBUG, "")
 	} else {
 		levelBackend.SetLevel(logging.ERROR, "")
 	}

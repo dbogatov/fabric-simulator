@@ -50,4 +50,5 @@ type Organization struct {
 // User ...
 type User struct {
 	CredentialsHolder
+	org *Organization
 }
