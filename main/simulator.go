@@ -9,19 +9,19 @@ import (
 
 var sysParams SystemParameters
 
-func simulate(orgs, users, peers, epoch, seed int, revoke, audit bool, idemix string) (e error) {
+func simulate(orgs, users, peers, epoch, seed, bandwidth int, revoke, audit bool, idemix string) (e error) {
 
-	log.Infof("Seed is %d\n", seed)
-	log.Infof("%d organizations %d users each managed by %d peers\n", orgs, users, peers)
-	log.Infof("Epochs are %d seconds long\n", epoch)
-	log.Infof("Revocations enabled: %t, auditings enabled %t\n", revoke, audit)
-	log.Infof("\"%s\" version of idemix is used\n", idemix)
+	logger.Infof("Seed is %d, bandwidth is %d B/s\n", seed, bandwidth)
+	logger.Infof("%d organizations %d users each managed by %d peers\n", orgs, users, peers)
+	logger.Infof("Epochs are %d seconds long\n", epoch)
+	logger.Infof("Revocations enabled: %t, auditings enabled %t\n", revoke, audit)
+	logger.Infof("\"%s\" version of idemix is used\n", idemix)
 
 	prg := amcl.NewRAND()
 	prg.Clean()
 	prg.Seed(1, []byte(strconv.Itoa(seed)))
 
-	sys, rootSk := MakeSystemParameters(prg, orgs, users)
+	sys, rootSk := MakeSystemParameters(prg, orgs, users, bandwidth)
 	sysParams = *sys
 
 	MakeNetwork(prg, rootSk)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var log = logging.MustGetLogger("main")
+var logger = logging.MustGetLogger("main")
 
 func main() {
 
@@ -40,6 +41,11 @@ func main() {
 				Name:  "seed",
 				Value: 1305,
 				Usage: "seed for PRG",
+			},
+			&cli.IntFlag{
+				Name:  "bandwidth",
+				Value: 1024 * 1024, // 1 MB/s
+				Usage: "bandwidth in bytes per second",
 			},
 			&cli.BoolFlag{
 				Name:  "revoke",
@@ -80,12 +86,21 @@ func main() {
 		Action: func(c *cli.Context) error {
 			configureLogging(c.Bool("verbose"))
 
+			f, err := os.OpenFile("network-log.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+			if err != nil {
+				logger.Fatalf("error opening file: %v", err)
+			}
+			defer f.Close()
+
+			log.SetOutput(f)
+
 			return simulate(
 				c.Int("orgs"),
 				c.Int("users"),
 				c.Int("peers"),
 				c.Int("epoch"),
 				c.Int("seed"),
+				c.Int("bandwidth"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
 				c.String("idemix"),
@@ -95,7 +110,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }
 

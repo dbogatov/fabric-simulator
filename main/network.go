@@ -32,7 +32,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 	orgLevel := 1
 	userLevel := 2
 
-	log.Info("Root CA has been initialized")
+	logger.Info("Root CA has been initialized")
 
 	for org := 0; org < sysParams.orgs; org++ {
 
@@ -82,7 +82,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 		)
 	}
 
-	log.Info("All organizations have received their credentials")
+	logger.Info("All organizations have received their credentials")
 
 	for i, org := range network.organizations {
 
@@ -141,7 +141,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 		}
 	}
 
-	log.Info("All users have received their credentials")
+	logger.Info("All users have received their credentials")
 
 	return
 }
