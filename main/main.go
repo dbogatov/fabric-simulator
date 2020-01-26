@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"strings"
+	"strconv"
 	"time"
 
+	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli/v2"
 )
@@ -47,6 +47,21 @@ func main() {
 				Value: 1024 * 1024, // 1 MB/s
 				Usage: "bandwidth in bytes per second",
 			},
+			&cli.IntFlag{
+				Name:  "transactions",
+				Value: 1000,
+				Usage: "total number of transactions",
+			},
+			&cli.IntFlag{
+				Name:  "peer-endorsements",
+				Value: 3,
+				Usage: "number of concurrent endorsements a peer can do",
+			},
+			&cli.IntFlag{
+				Name:  "peer-validations",
+				Value: 3,
+				Usage: "number of concurrent validations a peer can do",
+			},
 			&cli.BoolFlag{
 				Name:  "revoke",
 				Value: true,
@@ -61,14 +76,6 @@ func main() {
 				Name:  "verbose",
 				Value: true,
 				Usage: "verbose output",
-			},
-			&cli.GenericFlag{
-				Name: "idemix",
-				Value: &EnumValue{
-					Enum:    []string{"none", "old", "new"},
-					Default: "new",
-				},
-				Usage: "version of idemix: none, old or new",
 			},
 		},
 		Name:     "simulator",
@@ -95,17 +102,25 @@ func main() {
 
 			log.SetOutput(f)
 
-			return simulate(
+			prg := amcl.NewRAND()
+			prg.Clean()
+			prg.Seed(1, []byte(strconv.Itoa(c.Int("seed"))))
+
+			sys, rootSk := MakeSystemParameters(
+				prg,
 				c.Int("orgs"),
 				c.Int("users"),
 				c.Int("peers"),
-				c.Int("epoch"),
-				c.Int("seed"),
 				c.Int("bandwidth"),
+				c.Int("transactions"),
+				c.Int("peer-endorsements"),
+				c.Int("peer-validations"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
-				c.String("idemix"),
 			)
+			sysParams = *sys
+
+			return simulate(prg, rootSk)
 		},
 	}
 
@@ -126,30 +141,4 @@ func configureLogging(verbose bool) {
 		levelBackend.SetLevel(logging.ERROR, "")
 	}
 	logging.SetBackend(levelBackend)
-}
-
-// EnumValue for CLI
-type EnumValue struct {
-	Enum     []string
-	Default  string
-	selected string
-}
-
-// Set for CLI
-func (e *EnumValue) Set(value string) error {
-	for _, enum := range e.Enum {
-		if enum == value {
-			e.selected = value
-			return nil
-		}
-	}
-
-	return fmt.Errorf("allowed values are %s", strings.Join(e.Enum, ", "))
-}
-
-func (e EnumValue) String() string {
-	if e.selected == "" {
-		return e.Default
-	}
-	return e.selected
 }

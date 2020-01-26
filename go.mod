@@ -9,5 +9,6 @@ require (
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/spf13/cobra v0.0.5
 	github.com/urfave/cli/v2 v2.1.1
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	gotest.tools v2.2.0+incompatible
 )

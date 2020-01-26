@@ -70,3 +70,13 @@ func (nonce Nonce) size() int {
 func (nonce Nonce) name() string {
 	return "nonce"
 }
+
+/// TransactionProposal
+
+func (tp TransactionProposal) size() int {
+	return tp.payloadSize
+}
+
+func (tp TransactionProposal) name() string {
+	return "transaction-proposal"
+}

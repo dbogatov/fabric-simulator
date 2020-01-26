@@ -1,7 +1,8 @@
 package main
 
 import (
-	"strconv"
+	"fmt"
+	"sync"
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
@@ -9,22 +10,45 @@ import (
 
 var sysParams SystemParameters
 
-func simulate(orgs, users, peers, epoch, seed, bandwidth int, revoke, audit bool, idemix string) (e error) {
+func simulate(prg *amcl.RAND, rootSk dac.SK) (e error) {
 
-	logger.Infof("Seed is %d, bandwidth is %d B/s\n", seed, bandwidth)
-	logger.Infof("%d organizations %d users each managed by %d peers\n", orgs, users, peers)
-	logger.Infof("Epochs are %d seconds long\n", epoch)
-	logger.Infof("Revocations enabled: %t, auditings enabled %t\n", revoke, audit)
-	logger.Infof("\"%s\" version of idemix is used\n", idemix)
+	network := MakeNetwork(prg, rootSk)
 
-	prg := amcl.NewRAND()
-	prg.Clean()
-	prg.Seed(1, []byte(strconv.Itoa(seed)))
+	// playing with endorsements
+	var wg sync.WaitGroup
+	wg.Add(sysParams.peers)
 
-	sys, rootSk := MakeSystemParameters(prg, orgs, users, bandwidth)
-	sysParams = *sys
+	for peer := 0; peer < sysParams.peers; peer++ {
+		go func(peer int) {
+			defer wg.Done()
 
-	MakeNetwork(prg, rootSk)
+			tp := TransactionProposal{
+				id:          peer * 2,
+				payloadSize: 100,
+				from:        fmt.Sprintf("user-%d", peer),
+				doneChannel: make(chan Endorsement),
+			}
+			network.peers[peer].tpChannel <- tp
+			endorsement := <-tp.doneChannel
+			logger.Debugf("Got endorsement %d", endorsement.signature)
+		}(peer)
+	}
+
+	wg.Wait()
+
+	for index := 0; index < 10; index++ {
+		tp := TransactionProposal{
+			id:          index * 10,
+			payloadSize: 100,
+			from:        fmt.Sprintf("user-%d", index),
+			doneChannel: make(chan Endorsement),
+		}
+		network.peers[0].tpChannel <- tp
+		endorsement := <-tp.doneChannel
+		logger.Debugf("Got endorsement %d", endorsement.signature)
+	}
+
+	network.stop()
 
 	return
 }

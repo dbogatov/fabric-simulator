@@ -13,6 +13,7 @@ type Network struct {
 	root          CredentialsHolder
 	organizations []Organization
 	users         []User
+	peers         []Peer
 }
 
 // MakeNetwork ...
@@ -28,12 +29,19 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 		credentials: *dac.MakeCredentials(sysParams.rootPk),
 		name:        "Root",
 	}
-	credStarter := network.root.credentials.ToBytes()
-
-	const orgLevel = 1
-	const userLevel = 2
+	// credStarter := network.root.credentials.ToBytes()
 
 	logger.Info("Root CA has been initialized")
+
+	// network.generateOrganizations(prg, credStarter, rootSk)
+	// network.generateUsers(prg)
+	network.generatePeers()
+
+	return
+}
+
+func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte, rootSk dac.SK) {
+	const orgLevel = 1
 
 	organizations := make(chan Organization, sysParams.orgs)
 	var wgOrg sync.WaitGroup
@@ -102,6 +110,10 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 	}
 
 	logger.Info("All organizations have received their credentials")
+}
+
+func (network *Network) generateUsers(prg *amcl.RAND) {
+	const userLevel = 2
 
 	users := make(chan User, sysParams.users*sysParams.orgs)
 	var wgUser sync.WaitGroup
@@ -179,6 +191,20 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 	}
 
 	logger.Info("All users have received their credentials")
+}
 
-	return
+func (network *Network) generatePeers() {
+	for peer := 0; peer < sysParams.peers; peer++ {
+		network.peers = append(network.peers, *MakePeer(peer))
+	}
+
+	logger.Info("All peers have been spinned up")
+}
+
+func (network *Network) stop() {
+	for _, peer := range network.peers {
+		peer.exitChannel <- true
+	}
+
+	logger.Info("All peers have been shut down")
 }
