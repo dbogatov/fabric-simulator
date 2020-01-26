@@ -86,7 +86,8 @@ func main() {
 		Action: func(c *cli.Context) error {
 			configureLogging(c.Bool("verbose"))
 
-			f, err := os.OpenFile("network-log.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+			os.Remove("network-log.log")
+			f, err := os.OpenFile("network-log.log", os.O_WRONLY|os.O_CREATE, 0666)
 			if err != nil {
 				logger.Fatalf("error opening file: %v", err)
 			}

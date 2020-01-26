@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
@@ -12,13 +13,17 @@ type transferable interface {
 	name() string
 }
 
+var bandwidthLoggingMutex = &sync.Mutex{}
+
 func recordBandwidth(from, to string, object transferable) {
 	start := time.Now()
 	time.Sleep(time.Duration((float64(object.size()) / float64(sysParams.bandwidth))) * time.Second)
 	end := time.Now()
-	log.Printf("%s,%s,%s,%d,%s,%s", from, to, object.name(), object.size(), start.Format(time.RFC3339), end.Format(time.RFC3339))
 
+	bandwidthLoggingMutex.Lock()
+	log.Printf("%s,%s,%s,%d,%s,%s", from, to, object.name(), object.size(), start.Format(time.RFC3339), end.Format(time.RFC3339))
 	logger.Debugf("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
+	bandwidthLoggingMutex.Unlock()
 }
 
 /// Credentials

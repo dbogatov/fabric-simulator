@@ -45,10 +45,12 @@ type CredentialsHolder struct {
 // Organization ...
 type Organization struct {
 	CredentialsHolder
+	id int
 }
 
 // User ...
 type User struct {
 	CredentialsHolder
-	org *Organization
+	id  int
+	org int
 }

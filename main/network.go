@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
@@ -29,47 +30,56 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 	}
 	credStarter := network.root.credentials.ToBytes()
 
-	orgLevel := 1
-	userLevel := 2
+	const orgLevel = 1
+	const userLevel = 2
 
 	logger.Info("Root CA has been initialized")
 
+	organizations := make(chan Organization, sysParams.orgs)
+	var wgOrg sync.WaitGroup
+	wgOrg.Add(sysParams.orgs)
+
 	for org := 0; org < sysParams.orgs; org++ {
 
-		orgSk, orgPk := dac.GenerateKeys(prg, orgLevel)
+		go func(org int, seed []byte) {
+			defer wgOrg.Done()
 
-		// Credential request
+			prg := amcl.NewRAND()
+			prg.Clean()
+			prg.Seed(len(seed), seed)
 
-		rootNonce := randomBytes(prg, NonceSize)
-		recordBandwidth("root", fmt.Sprintf("org-%d", org), Nonce{rootNonce})
+			orgSk, orgPk := dac.GenerateKeys(prg, orgLevel)
 
-		credRequest := dac.MakeCredRequest(prg, orgSk, rootNonce, orgLevel)
-		recordBandwidth(fmt.Sprintf("org-%d", org), "root", CredRequest{credRequest})
+			// Credential request
 
-		if e := credRequest.Validate(); e != nil {
-			panic(e)
-		}
+			rootNonce := randomBytes(prg, NonceSize)
+			recordBandwidth("root", fmt.Sprintf("org-%d", org), Nonce{rootNonce})
 
-		// Root CA delegates the credentials
+			credRequest := dac.MakeCredRequest(prg, orgSk, rootNonce, orgLevel)
+			recordBandwidth(fmt.Sprintf("org-%d", org), "root", CredRequest{credRequest})
 
-		attributes := []interface{}{
-			dac.ProduceAttributes(orgLevel, fmt.Sprintf("org-%d", org))[0],
-			dac.ProduceAttributes(orgLevel, "has-right-to-post")[0],
-		}
+			if e := credRequest.Validate(); e != nil {
+				panic(e)
+			}
 
-		credsOrg := dac.CredentialsFromBytes(credStarter)
-		if e := credsOrg.Delegate(rootSk, orgPk, attributes, prg, sysParams.ys); e != nil {
-			panic(e)
-		}
-		recordBandwidth("root", fmt.Sprintf("org-%d", org), Credentials{credsOrg})
+			// Root CA delegates the credentials
 
-		if e := credsOrg.Verify(orgSk, sysParams.rootPk, sysParams.ys); e != nil {
-			panic(e)
-		}
+			attributes := []interface{}{
+				dac.ProduceAttributes(orgLevel, fmt.Sprintf("org-%d", org))[0],
+				dac.ProduceAttributes(orgLevel, "has-right-to-post")[0],
+			}
 
-		network.organizations = append(
-			network.organizations,
-			Organization{
+			credsOrg := dac.CredentialsFromBytes(credStarter)
+			if e := credsOrg.Delegate(rootSk, orgPk, attributes, prg, sysParams.ys); e != nil {
+				panic(e)
+			}
+			recordBandwidth("root", fmt.Sprintf("org-%d", org), Credentials{credsOrg})
+
+			if e := credsOrg.Verify(orgSk, sysParams.rootPk, sysParams.ys); e != nil {
+				panic(e)
+			}
+
+			organizations <- Organization{
 				CredentialsHolder: CredentialsHolder{
 					KeysHolder: KeysHolder{
 						pk: orgPk,
@@ -78,55 +88,73 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 					credentials: *credsOrg,
 					name:        fmt.Sprintf("org-%d", org),
 				},
-			},
-		)
+				id: org,
+			}
+
+		}(org, randomBytes(prg, 32))
+	}
+
+	wgOrg.Wait()
+	close(organizations)
+
+	for org := range organizations {
+		network.organizations = append(network.organizations, org)
 	}
 
 	logger.Info("All organizations have received their credentials")
 
-	for i, org := range network.organizations {
+	users := make(chan User, sysParams.users*sysParams.orgs)
+	var wgUser sync.WaitGroup
+	wgUser.Add(sysParams.orgs * sysParams.users)
 
-		credStarter = org.credentials.ToBytes()
+	for org := 0; org < sysParams.orgs; org++ {
 
 		for user := 0; user < sysParams.users; user++ {
 
-			userName := fmt.Sprintf("user-%d-%d", i, user)
+			go func(user, org int, seed []byte) {
 
-			userSk, userPk := dac.GenerateKeys(prg, userLevel)
+				defer wgUser.Done()
 
-			// Credential request
+				prg := amcl.NewRAND()
+				prg.Clean()
+				prg.Seed(len(seed), seed)
 
-			orgNonce := randomBytes(prg, NonceSize)
-			recordBandwidth(org.name, userName, Nonce{orgNonce})
+				userName := fmt.Sprintf("user-%d-%d", org, user)
+				organization := network.organizations[org]
 
-			credRequest := dac.MakeCredRequest(prg, userSk, orgNonce, userLevel)
-			recordBandwidth(userName, org.name, CredRequest{credRequest})
+				userSk, userPk := dac.GenerateKeys(prg, userLevel)
 
-			if e := credRequest.Validate(); e != nil {
-				panic(e)
-			}
+				// Credential request
 
-			// Organization delegates the credentials
+				orgNonce := randomBytes(prg, NonceSize)
+				recordBandwidth(organization.name, userName, Nonce{orgNonce})
 
-			attributes := []interface{}{
-				dac.ProduceAttributes(userLevel, userName)[0],
-				dac.ProduceAttributes(userLevel, "has-right-to-post")[0],
-				dac.ProduceAttributes(userLevel, "something-else")[0],
-			}
+				credRequest := dac.MakeCredRequest(prg, userSk, orgNonce, userLevel)
+				recordBandwidth(userName, organization.name, CredRequest{credRequest})
 
-			credsUser := dac.CredentialsFromBytes(credStarter)
-			if e := credsUser.Delegate(org.sk, userPk, attributes, prg, sysParams.ys); e != nil {
-				panic(e)
-			}
-			recordBandwidth(org.name, userName, Credentials{credsUser})
+				if e := credRequest.Validate(); e != nil {
+					panic(e)
+				}
 
-			if e := credsUser.Verify(userSk, sysParams.rootPk, sysParams.ys); e != nil {
-				panic(e)
-			}
+				// Organization delegates the credentials
 
-			network.users = append(
-				network.users,
-				User{
+				attributes := []interface{}{
+					dac.ProduceAttributes(userLevel, userName)[0],
+					dac.ProduceAttributes(userLevel, "has-right-to-post")[0],
+					dac.ProduceAttributes(userLevel, "something-else")[0],
+				}
+
+				credsUser := dac.CredentialsFromBytes(organization.credentials.ToBytes())
+				if e := credsUser.Delegate(organization.sk, userPk, attributes, prg, sysParams.ys); e != nil {
+					panic(e)
+				}
+				recordBandwidth(organization.name, userName, Credentials{credsUser})
+
+				if e := credsUser.Verify(userSk, sysParams.rootPk, sysParams.ys); e != nil {
+					panic(e)
+				}
+
+				users <- User{
 					CredentialsHolder: CredentialsHolder{
 						KeysHolder: KeysHolder{
 							pk: userPk,
@@ -135,10 +163,19 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 						credentials: *credsUser,
 						name:        userName,
 					},
-					org: &org,
-				},
-			)
+					org: org,
+					id:  user,
+				}
+
+			}(user, org, randomBytes(prg, 32))
 		}
+	}
+
+	wgUser.Wait()
+	close(users)
+
+	for user := range users {
+		network.users = append(network.users, user)
 	}
 
 	logger.Info("All users have received their credentials")
