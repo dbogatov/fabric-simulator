@@ -36,6 +36,11 @@ func main() {
 				Value: 60,
 				Usage: "length of an epoch in seconds",
 			},
+			&cli.IntFlag{
+				Name:  "seed",
+				Value: 1305,
+				Usage: "seed for PRG",
+			},
 			&cli.BoolFlag{
 				Name:  "revoke",
 				Value: true,
@@ -48,7 +53,7 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:  "verbose",
-				Value: false,
+				Value: true,
 				Usage: "verbose output",
 			},
 			&cli.GenericFlag{
@@ -80,6 +85,7 @@ func main() {
 				c.Int("users"),
 				c.Int("peers"),
 				c.Int("epoch"),
+				c.Int("seed"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
 				c.String("idemix"),
