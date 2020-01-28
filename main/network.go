@@ -29,12 +29,12 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 		credentials: *dac.MakeCredentials(sysParams.rootPk),
 		name:        "Root",
 	}
-	// credStarter := network.root.credentials.ToBytes()
+	credStarter := network.root.credentials.ToBytes()
 
 	logger.Info("Root CA has been initialized")
 
-	// network.generateOrganizations(prg, credStarter, rootSk)
-	// network.generateUsers(prg)
+	network.generateOrganizations(prg, credStarter, rootSk)
+	network.generateUsers(prg)
 	network.generatePeers()
 
 	return
@@ -115,7 +115,7 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 func (network *Network) generateUsers(prg *amcl.RAND) {
 	const userLevel = 2
 
-	users := make(chan User, sysParams.users*sysParams.orgs)
+	users := make(chan *User, sysParams.users*sysParams.orgs)
 	var wgUser sync.WaitGroup
 	wgUser.Add(sysParams.orgs * sysParams.users)
 
@@ -166,8 +166,8 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 					panic(e)
 				}
 
-				users <- User{
-					CredentialsHolder: CredentialsHolder{
+				users <- MakeUser(
+					CredentialsHolder{
 						KeysHolder: KeysHolder{
 							pk: userPk,
 							sk: userSk,
@@ -175,9 +175,10 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 						credentials: *credsUser,
 						name:        userName,
 					},
-					org: org,
-					id:  user,
-				}
+					user,
+					org,
+					randomBytes(prg, 32),
+				)
 
 			}(user, org, randomBytes(prg, 32))
 		}
@@ -187,7 +188,7 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 	close(users)
 
 	for user := range users {
-		network.users = append(network.users, user)
+		network.users = append(network.users, *user)
 	}
 
 	logger.Info("All users have received their credentials")

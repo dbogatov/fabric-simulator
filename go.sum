@@ -11,6 +11,8 @@ github.com/cpuguy83/go-md2man/v2 v2.0.0/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsr
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dbogatov/dac-lib v0.0.0-20200122222742-bca64425dbb6 h1:vVhyQiyUQlKDxfpiBnYsjbaCnSLbrskW/UcbknOu0hE=
 github.com/dbogatov/dac-lib v0.0.0-20200122222742-bca64425dbb6/go.mod h1:DHIKiCFZ6tA92oAU1Lm7VgMhBjadUbgSDy1pxC/3sJA=
+github.com/dbogatov/dac-lib v0.0.0-20200127231128-cae0b941f65f h1:lYlSc3phkJESj2NUbPXh12xOR5TbzPhJ/46YIOxIEDM=
+github.com/dbogatov/dac-lib v0.0.0-20200127231128-cae0b941f65f/go.mod h1:DHIKiCFZ6tA92oAU1Lm7VgMhBjadUbgSDy1pxC/3sJA=
 github.com/dbogatov/fabric-amcl v0.0.0-20190731091901-c69f438d7884 h1:EVLi2Rt4muXqg8qtHEUsbqSSQ2/0YKwVkfnumKbNvFY=
 github.com/dbogatov/fabric-amcl v0.0.0-20190731091901-c69f438d7884/go.mod h1:jFQkONklP4QnpE8sAGHkWpydvJdRTgi9oWQEUy8lfTo=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -51,6 +53,8 @@ golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACk
 golang.org/x/net v0.0.0-20190311183353-d8887717615a/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58 h1:8gQV6CLnAEikrhgkHFbMAEhagSSnXWGV915qUMm9mrU=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e h1:vcxGaoTs7kV8m5Np9uUNQin4BrLOthgV7252N8V+FwY=
+golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sys v0.0.0-20181205085412-a5c9d58dba9a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

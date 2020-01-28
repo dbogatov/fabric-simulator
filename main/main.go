@@ -33,6 +33,11 @@ func main() {
 				Usage: "number of peers",
 			},
 			&cli.IntFlag{
+				Name:  "endorsements",
+				Value: 2,
+				Usage: "endorsement policy: number of endorsing peers per transaction",
+			},
+			&cli.IntFlag{
 				Name:  "epoch",
 				Value: 60,
 				Usage: "length of an epoch in seconds",
@@ -53,12 +58,12 @@ func main() {
 				Usage: "total number of transactions",
 			},
 			&cli.IntFlag{
-				Name:  "peer-endorsements",
+				Name:  "conc-endorsements",
 				Value: 3,
 				Usage: "number of concurrent endorsements a peer can do",
 			},
 			&cli.IntFlag{
-				Name:  "peer-validations",
+				Name:  "conc-validations",
 				Value: 3,
 				Usage: "number of concurrent validations a peer can do",
 			},
@@ -111,10 +116,11 @@ func main() {
 				c.Int("orgs"),
 				c.Int("users"),
 				c.Int("peers"),
+				c.Int("endorsements"),
 				c.Int("bandwidth"),
 				c.Int("transactions"),
-				c.Int("peer-endorsements"),
-				c.Int("peer-validations"),
+				c.Int("conc-endorsements"),
+				c.Int("conc-validations"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
 			)

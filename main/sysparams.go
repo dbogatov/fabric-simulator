@@ -20,21 +20,24 @@ type SystemParameters struct {
 	orgs                   int
 	users                  int
 	peers                  int
+	endorsements           int
 	transactions           int
 	concurrentEndorsements int
 	concurrentValidations  int
 	bandwidth              int // B/s
 	revoke                 bool
 	audit                  bool
+	network                *Network
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(prg *amcl.RAND, orgs, users, peers, bandwidth, concurrentEndorsements, concurrentValidations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(prg *amcl.RAND, orgs, users, peers, endorsements, bandwidth, concurrentEndorsements, concurrentValidations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
 
 	sysParams = &SystemParameters{
 		orgs:                   orgs,
 		users:                  users,
 		peers:                  peers,
+		endorsements:           endorsements,
 		bandwidth:              bandwidth,
 		concurrentEndorsements: concurrentEndorsements,
 		concurrentValidations:  concurrentValidations,
