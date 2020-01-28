@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"math/big"
 
+	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
 )
 
@@ -32,16 +32,18 @@ func MakeUser(credHolder CredentialsHolder, id, org int, seed []byte) (user *Use
 
 func (user *User) submitTransaction(message string) {
 
-	hash := sha3(message)
+	hash := sha3([]byte(message))
 	endorsers := make([]int, sysParams.endorsements)
 
+	endorser := peerByHash(sha3([]byte(message)), sysParams.peers)
+
 	for peer := 0; peer < sysParams.endorsements; peer++ {
-		endorsers[peer] = peerByHash(sha3(fmt.Sprintf("%s-%d", message, peer)), sysParams.endorsements)
+		endorsers[peer] = (endorser + peer) % sysParams.peers
 	}
 
-	proposal := MakeTransactionProposal(user.prg, hash, *user)
+	proposal, pkNym, skNym := MakeTransactionProposal(user.prg, hash, *user)
 	for _, endorser := range endorsers {
-		sysParams.network.peers[endorser].tpChannel <- proposal
+		sysParams.network.peers[endorser].endorsementChannel <- proposal
 	}
 
 	endorsements := make([]Endorsement, 0)
@@ -51,33 +53,19 @@ func (user *User) submitTransaction(message string) {
 
 	logger.Infof("%s has go all endorsements", user.name)
 
-	// TODO
-}
-
-func peerByHash(hash []byte, peers int) (peer int) {
-	input := new(big.Int)
-	input.SetBytes(hash)
-
-	divisor := new(big.Int)
-	divisor.SetInt64(int64(peers))
-
-	result := new(big.Int)
-	result = result.Mod(input, divisor)
-
-	peer = int(result.Int64())
-
-	return
-}
-
-func sha3(message string) (hash []byte) {
-
-	hash = make([]byte, 32)
-	raw := []byte(message)
-	sha3 := amcl.NewSHA3(amcl.SHA3_HASH256)
-	for i := 0; i < len(raw); i++ {
-		sha3.Process(raw[i])
+	tx := &Transaction{
+		payloadSize:  200,                                                                              // TODO
+		signature:    dac.SignNym(user.prg, pkNym, skNym, user.sk, sysParams.h, proposal.getMessage()), // ideally we add endorsements here but its fine for simulations
+		proposal:     *proposal,
+		endorsements: endorsements,
+		doneChannel:  make(chan bool, sysParams.peers), // need to receive OK from all peers (50%+1, technically)
 	}
-	sha3.Hash(hash[:])
 
-	return
+	orderer := peerByHash(sha3([]byte(fmt.Sprintf("%s-order", message))), sysParams.peers)
+	sysParams.network.peers[orderer].orderingChannel <- tx
+
+	// TODO
+	<-tx.doneChannel
+
+	logger.Infof("%s transaction completed", user.name)
 }

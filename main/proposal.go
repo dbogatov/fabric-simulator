@@ -19,9 +19,10 @@ type TransactionProposal struct {
 	// TODO auditing and revocation
 }
 
-func MakeTransactionProposal(prg *amcl.RAND, hash []byte, user User) (tp *TransactionProposal) {
+// MakeTransactionProposal ...
+func MakeTransactionProposal(prg *amcl.RAND, hash []byte, user User) (tp *TransactionProposal, pkNym interface{}, skNym dac.SK) {
 
-	skNym, pkNym := dac.GenerateNymKeys(prg, user.sk, sysParams.h)
+	skNym, pkNym = dac.GenerateNymKeys(prg, user.sk, sysParams.h)
 	indices := dac.Indices{
 		dac.Index{
 			I:         1,
