@@ -20,7 +20,9 @@ type TransactionProposal struct {
 }
 
 // MakeTransactionProposal ...
-func MakeTransactionProposal(prg *amcl.RAND, hash []byte, user User) (tp *TransactionProposal, pkNym interface{}, skNym dac.SK) {
+func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, pkNym interface{}, skNym dac.SK) {
+
+	prg := amcl.NewRAND()
 
 	skNym, pkNym = dac.GenerateNymKeys(prg, user.sk, sysParams.h)
 	indices := dac.Indices{

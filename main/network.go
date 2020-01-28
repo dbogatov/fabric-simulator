@@ -177,7 +177,6 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 					},
 					user,
 					org,
-					randomBytes(prg, 32),
 				)
 
 			}(user, org, randomBytes(prg, 32))

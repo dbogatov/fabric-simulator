@@ -3,10 +3,8 @@ package main
 import (
 	"log"
 	"os"
-	"strconv"
 	"time"
 
-	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli/v2"
 )
@@ -43,19 +41,14 @@ func main() {
 				Usage: "length of an epoch in seconds",
 			},
 			&cli.IntFlag{
-				Name:  "seed",
-				Value: 1305,
-				Usage: "seed for PRG",
-			},
-			&cli.IntFlag{
 				Name:  "bandwidth",
 				Value: 1024 * 1024, // 1 MB/s
 				Usage: "bandwidth in bytes per second",
 			},
 			&cli.IntFlag{
 				Name:  "transactions",
-				Value: 1000,
-				Usage: "total number of transactions",
+				Value: 25,
+				Usage: "total number of transactions per user",
 			},
 			&cli.IntFlag{
 				Name:  "conc-endorsements",
@@ -64,7 +57,7 @@ func main() {
 			},
 			&cli.IntFlag{
 				Name:  "conc-validations",
-				Value: 3,
+				Value: 10,
 				Usage: "number of concurrent validations a peer can do",
 			},
 			&cli.BoolFlag{
@@ -79,7 +72,7 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:  "verbose",
-				Value: true,
+				Value: false,
 				Usage: "verbose output",
 			},
 		},
@@ -107,26 +100,21 @@ func main() {
 
 			log.SetOutput(f)
 
-			prg := amcl.NewRAND()
-			prg.Clean()
-			prg.Seed(1, []byte(strconv.Itoa(c.Int("seed"))))
-
 			sys, rootSk := MakeSystemParameters(
-				prg,
 				c.Int("orgs"),
 				c.Int("users"),
 				c.Int("peers"),
 				c.Int("endorsements"),
 				c.Int("bandwidth"),
-				c.Int("transactions"),
 				c.Int("conc-endorsements"),
 				c.Int("conc-validations"),
+				c.Int("transactions"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
 			)
 			sysParams = *sys
 
-			return simulate(prg, rootSk)
+			return simulate(rootSk)
 		},
 	}
 
@@ -138,13 +126,13 @@ func main() {
 
 func configureLogging(verbose bool) {
 	logging.SetFormatter(
-		logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} |	 %{message}`),
+		logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc:22s} ▶ %{level:6s} %{id:03x}%{color:reset} |	 %{message}`),
 	)
 	levelBackend := logging.AddModuleLevel(logging.NewLogBackend(os.Stdout, "", 0))
 	if verbose {
 		levelBackend.SetLevel(logging.DEBUG, "")
 	} else {
-		levelBackend.SetLevel(logging.ERROR, "")
+		levelBackend.SetLevel(logging.INFO, "")
 	}
 	logging.SetBackend(levelBackend)
 }

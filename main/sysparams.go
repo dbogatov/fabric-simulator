@@ -31,7 +31,9 @@ type SystemParameters struct {
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(prg *amcl.RAND, orgs, users, peers, endorsements, bandwidth, concurrentEndorsements, concurrentValidations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(orgs, users, peers, endorsements, bandwidth, concurrentEndorsements, concurrentValidations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
+
+	prg := amcl.NewRAND()
 
 	sysParams = &SystemParameters{
 		orgs:                   orgs,

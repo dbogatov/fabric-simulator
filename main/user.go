@@ -12,19 +12,13 @@ type User struct {
 	CredentialsHolder
 	id  int
 	org int
-	prg *amcl.RAND
 }
 
-func MakeUser(credHolder CredentialsHolder, id, org int, seed []byte) (user *User) {
-	prg := amcl.NewRAND()
-	prg.Clean()
-	prg.Seed(len(seed), seed)
-
+func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
 	user = &User{
 		CredentialsHolder: credHolder,
 		id:                id,
 		org:               org,
-		prg:               prg,
 	}
 
 	return
@@ -41,7 +35,7 @@ func (user *User) submitTransaction(message string) {
 		endorsers[peer] = (endorser + peer) % sysParams.peers
 	}
 
-	proposal, pkNym, skNym := MakeTransactionProposal(user.prg, hash, *user)
+	proposal, pkNym, skNym := MakeTransactionProposal(hash, *user)
 	for _, endorser := range endorsers {
 		sysParams.network.peers[endorser].endorsementChannel <- proposal
 	}
@@ -51,11 +45,11 @@ func (user *User) submitTransaction(message string) {
 		endorsements = append(endorsements, <-proposal.doneChannel)
 	}
 
-	logger.Infof("%s has go all endorsements", user.name)
+	logger.Debugf("%s has got all endorsements", user.name)
 
 	tx := &Transaction{
-		payloadSize:  200,                                                                              // TODO
-		signature:    dac.SignNym(user.prg, pkNym, skNym, user.sk, sysParams.h, proposal.getMessage()), // ideally we add endorsements here but its fine for simulations
+		payloadSize:  200,                                                                                    // TODO
+		signature:    dac.SignNym(amcl.NewRAND(), pkNym, skNym, user.sk, sysParams.h, proposal.getMessage()), // ideally we add endorsements here but its fine for simulations
 		proposal:     *proposal,
 		endorsements: endorsements,
 		doneChannel:  make(chan bool, sysParams.peers), // need to receive OK from all peers (50%+1, technically)
@@ -64,8 +58,10 @@ func (user *User) submitTransaction(message string) {
 	orderer := peerByHash(sha3([]byte(fmt.Sprintf("%s-order", message))), sysParams.peers)
 	sysParams.network.peers[orderer].orderingChannel <- tx
 
-	// TODO
-	<-tx.doneChannel
+	// wait for all peers to commit the transaction
+	for peer := 0; peer < sysParams.peers; peer++ {
+		<-tx.doneChannel
+	}
 
 	logger.Infof("%s transaction completed", user.name)
 }

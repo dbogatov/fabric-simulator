@@ -27,9 +27,11 @@ type Peer struct {
 	ctx context.Context
 
 	endorsementSemaphore *semaphore.Weighted
+	validationSemaphore  *semaphore.Weighted
 
 	endorsementChannel chan *TransactionProposal
 	orderingChannel    chan *Transaction
+	validationChannel  chan *Transaction
 	exitChannel        chan bool
 
 	cache map[operation][][32]byte
@@ -43,8 +45,10 @@ func MakePeer(id int) (peer *Peer) {
 		id:                   id,
 		ctx:                  context.TODO(),
 		endorsementSemaphore: semaphore.NewWeighted(int64(sysParams.concurrentEndorsements)),
+		validationSemaphore:  semaphore.NewWeighted(int64(sysParams.concurrentValidations)),
 		endorsementChannel:   make(chan *TransactionProposal),
 		orderingChannel:      make(chan *Transaction),
+		validationChannel:    make(chan *Transaction),
 		exitChannel:          make(chan bool),
 		KeysHolder: KeysHolder{
 			pk: pk,
@@ -65,15 +69,24 @@ func (peer *Peer) run() {
 	for {
 		select {
 		case tp := <-peer.endorsementChannel:
-			recordBandwidth(tp.from, fmt.Sprintf("peer-%d", peer.id), tp)
+			recordBandwidth(tp.from, fmt.Sprintf("peer-%d (endorser)", peer.id), tp)
 			if e := peer.endorsementSemaphore.Acquire(peer.ctx, 1); e != nil {
 				panic(e)
 			}
 			go peer.endorse(tp)
 			continue
 		case tx := <-peer.orderingChannel:
-			recordBandwidth(tx.proposal.from, fmt.Sprintf("peer-%d", peer.id), tx)
+			recordBandwidth(tx.proposal.from, fmt.Sprintf("peer-%d (orderer)", peer.id), tx)
 			go peer.order(tx)
+			continue
+		case tx := <-peer.validationChannel:
+			if tx.orderer != peer.id {
+				recordBandwidth(fmt.Sprintf("peer-%d (orderer)", tx.orderer), fmt.Sprintf("peer-%d", peer.id), tx)
+			}
+			if e := peer.validationSemaphore.Acquire(peer.ctx, 1); e != nil {
+				panic(e)
+			}
+			go peer.validate(tx)
 			continue
 		case <-peer.exitChannel:
 		}
@@ -81,12 +94,46 @@ func (peer *Peer) run() {
 	}
 }
 
+func (peer *Peer) validate(tx *Transaction) {
+
+	defer peer.validationSemaphore.Release(1)
+
+	if e := tx.signature.VerifyNym(sysParams.h, tx.proposal.pkNym, tx.proposal.getMessage()); e != nil {
+		panic(e)
+	}
+
+	if len(tx.endorsements) < sysParams.endorsements {
+		panic("too few endorsements")
+	}
+
+	schnorr := dac.MakeSchnorr(amcl.NewRAND(), false)
+	for _, endorsement := range tx.endorsements {
+		if e := schnorr.Verify(sysParams.network.peers[endorsement.endorser].pk, endorsement.signature, tx.proposal.getMessage()); e != nil {
+			panic(e)
+		}
+	}
+
+	peer.validateIdentity(tx.proposal.author, tx.proposal.pkNym, tx.proposal.indices, verification)
+
+	// somewhere here are read/write conflict check and ledger update
+	// but they are negligible in comparison to crypto
+
+	executeChaincode()
+
+	tx.doneChannel <- true
+}
+
 func (peer *Peer) order(tx *Transaction) {
 
-	// TODO
-	tx.doneChannel <- true
+	peer.validateIdentity(tx.proposal.author, tx.proposal.pkNym, tx.proposal.indices, ordering)
 
-	logger.Debugf("Peer %d has ordered transaction", peer.id)
+	tx.orderer = peer.id
+
+	for _, other := range sysParams.network.peers {
+		other.validationChannel <- tx
+	}
+
+	logger.Debugf("Peer %d has ordered a transaction", peer.id)
 }
 
 func (peer *Peer) endorse(tp *TransactionProposal) {
@@ -99,29 +146,29 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	}
 	// Verify author
 	// Ideally should verify that tp.indices[0].Attribute is equal to the expected value that permits using the blockchain
-	peer.validate(tp.author, tp.pkNym, tp.indices, endorsement)
+	peer.validateIdentity(tp.author, tp.pkNym, tp.indices, endorsement)
 
 	// Verify read / write permissions (should be cached)
-	peer.validate(tp.author, tp.pkNym, tp.indices, endorsement)
+	peer.validateIdentity(tp.author, tp.pkNym, tp.indices, endorsement)
 
 	// Execute proposal
-	// TODO
-	time.Sleep(50 * time.Millisecond)
+	executeChaincode()
 
 	// All set!
-	schnorr := dac.MakeSchnorr(amcl.NewRAND(), true)
+	schnorr := dac.MakeSchnorr(amcl.NewRAND(), false)
 
 	logger.Debugf("Peer %d endorsed transaction payload %s", peer.id, tp.from)
 	endorsement := Endorsement{
 		payloadSize: 200, // TODO
 		signature:   schnorr.Sign(peer.sk, tp.getMessage()),
+		endorser:    peer.id,
 	}
 	recordBandwidth(fmt.Sprintf("peer-%d", peer.id), tp.from, endorsement)
 
 	tp.doneChannel <- endorsement
 }
 
-func (peer *Peer) validate(proof []byte, pkNym interface{}, indices dac.Indices, op operation) {
+func (peer *Peer) validateIdentity(proof []byte, pkNym interface{}, indices dac.Indices, op operation) {
 
 	var key [32]byte
 	copy(key[:], sha3(proof)[:4])
@@ -138,10 +185,16 @@ func (peer *Peer) validate(proof []byte, pkNym interface{}, indices dac.Indices,
 	peer.cache[op] = append(peer.cache[op], key)
 }
 
+func executeChaincode() {
+	// TODO
+	time.Sleep(50 * time.Millisecond)
+}
+
 // Endorsement ...
 type Endorsement struct {
 	payloadSize int
 	signature   dac.SchnorrSignature
+	endorser    int
 }
 
 func (endorsement Endorsement) size() int {
@@ -154,10 +207,11 @@ func (endorsement Endorsement) name() string {
 
 // Transaction ...
 type Transaction struct {
-	payloadSize  int
+	payloadSize  int // TODO
 	signature    dac.NymSignature
 	proposal     TransactionProposal
 	endorsements []Endorsement
+	orderer      int
 	doneChannel  chan bool
 }
 
