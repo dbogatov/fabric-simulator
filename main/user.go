@@ -14,6 +14,7 @@ type User struct {
 	org int
 }
 
+// MakeUser ...
 func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
 	user = &User{
 		CredentialsHolder: credHolder,
@@ -40,9 +41,14 @@ func (user *User) submitTransaction(message string) {
 		sysParams.network.peers[endorser].endorsementChannel <- proposal
 	}
 
+	schnorr := dac.MakeSchnorr(amcl.NewRAND(), false)
 	endorsements := make([]Endorsement, 0)
 	for i := 0; i < sysParams.endorsements; i++ {
-		endorsements = append(endorsements, <-proposal.doneChannel)
+		endorsement := <-proposal.doneChannel
+		if e := schnorr.Verify(sysParams.network.peers[endorsement.endorser].pk, endorsement.signature, proposal.getMessage()); e != nil {
+			panic(e)
+		}
+		endorsements = append(endorsements, endorsement)
 	}
 
 	logger.Debugf("%s has got all endorsements", user.name)
