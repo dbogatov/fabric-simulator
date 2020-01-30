@@ -15,6 +15,9 @@ type Network struct {
 	organizations []Organization
 	users         []User
 	peers         []Peer
+	transactions  []Transaction
+
+	transactionRecordLock *sync.Mutex
 }
 
 // MakeNetwork ...
@@ -35,6 +38,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 			pk: auditPk,
 			sk: auditSk,
 		},
+		transactionRecordLock: &sync.Mutex{},
 	}
 	credStarter := network.root.credentials.ToBytes()
 
@@ -214,4 +218,12 @@ func (network *Network) stop() {
 	}
 
 	logger.Info("All peers have been shut down")
+}
+
+func (network *Network) recordTransaction(tx *Transaction) {
+	network.transactionRecordLock.Lock()
+
+	defer network.transactionRecordLock.Unlock()
+
+	network.transactions = append(network.transactions, *tx)
 }

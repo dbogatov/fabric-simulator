@@ -77,5 +77,7 @@ func (user *User) submitTransaction(message string) {
 		<-tx.doneChannel
 	}
 
+	sysParams.network.recordTransaction(tx)
+
 	logger.Infof("%s transaction completed", user.name)
 }

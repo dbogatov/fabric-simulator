@@ -30,6 +30,22 @@ func simulate(rootSk dac.SK) (e error) {
 
 	wgUser.Wait()
 
+	// Auditing
+	if sysParams.audit {
+
+		logger.Infof("Audit started over %d transactions", len(sysParams.network.transactions))
+
+		for _, transaction := range sysParams.network.transactions {
+			authorPk := transaction.auditEnc.AuditingDecrypt(sysParams.network.auditor.sk)
+			if !dac.PkEqual(authorPk, sysParams.network.users[transaction.proposal.authorID].CredentialsHolder.pk) {
+				panic("auditing failed")
+			}
+		}
+
+		logger.Info("Audit completed")
+
+	}
+
 	sysParams.network.stop()
 
 	return

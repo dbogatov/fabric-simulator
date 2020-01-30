@@ -10,6 +10,7 @@ type TransactionProposal struct {
 	payloadSize int
 	hash        []byte
 	from        string
+	authorID    int // for checking auditing correctness
 	chaincode   string
 	doneChannel chan Endorsement
 	signature   dac.NymSignature
@@ -52,6 +53,7 @@ func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, p
 	tp = &TransactionProposal{
 		chaincode:   "chaincode: hash | policy: write",
 		from:        user.name,
+		authorID:    user.id,
 		hash:        hash,
 		author:      author,
 		pkNym:       pkNym,
