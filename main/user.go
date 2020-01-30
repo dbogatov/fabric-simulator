@@ -16,6 +16,7 @@ type User struct {
 
 // MakeUser ...
 func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
+
 	user = &User{
 		CredentialsHolder: credHolder,
 		id:                id,
@@ -26,6 +27,8 @@ func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
 }
 
 func (user *User) submitTransaction(message string) {
+
+	prg := amcl.NewRAND()
 
 	hash := sha3([]byte(message))
 	endorsers := make([]int, sysParams.endorsements)
@@ -41,7 +44,7 @@ func (user *User) submitTransaction(message string) {
 		sysParams.network.peers[endorser].endorsementChannel <- proposal
 	}
 
-	schnorr := dac.MakeSchnorr(amcl.NewRAND(), false)
+	schnorr := dac.MakeSchnorr(prg, false)
 	endorsements := make([]Endorsement, 0)
 	for i := 0; i < sysParams.endorsements; i++ {
 		endorsement := <-proposal.doneChannel
@@ -53,10 +56,15 @@ func (user *User) submitTransaction(message string) {
 
 	logger.Debugf("%s has got all endorsements", user.name)
 
+	// fresh auditing encryption and proof every transaction
+	auditEnc, auditR := dac.AuditingEncrypt(amcl.NewRAND(), sysParams.network.auditor.pk, user.pk)
+
 	tx := &Transaction{
-		payloadSize:  200,                                                                                    // TODO
-		signature:    dac.SignNym(amcl.NewRAND(), pkNym, skNym, user.sk, sysParams.h, proposal.getMessage()), // ideally we add endorsements here but its fine for simulations
+		payloadSize:  200,                                                                         // TODO
+		signature:    dac.SignNym(prg, pkNym, skNym, user.sk, sysParams.h, proposal.getMessage()), // ideally we add endorsements here but its fine for simulations
 		proposal:     *proposal,
+		auditEnc:     auditEnc,
+		auditProof:   dac.AuditingProve(prg, auditEnc, user.pk, user.sk, pkNym, skNym, sysParams.network.auditor.pk, auditR, sysParams.h),
 		endorsements: endorsements,
 		doneChannel:  make(chan bool, sysParams.peers), // need to receive OK from all peers (50%+1, technically)
 	}

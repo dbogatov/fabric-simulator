@@ -15,7 +15,7 @@ const NonceSize = 32
 // SystemParameters ...
 type SystemParameters struct {
 	ys                     [][]interface{}
-	h                      *FP256BN.ECP
+	h                      *FP256BN.ECP2 // because we have users on level 2
 	rootPk                 dac.PK
 	orgs                   int
 	users                  int
@@ -46,7 +46,7 @@ func MakeSystemParameters(orgs, users, peers, endorsements, bandwidth, concurren
 		transactions:           transactions,
 		revoke:                 revoke,
 		audit:                  audit,
-		h:                      FP256BN.ECP_generator().Mul(FP256BN.Randomnum(FP256BN.NewBIGints(FP256BN.CURVE_Order), prg)),
+		h:                      FP256BN.ECP2_generator().Mul(FP256BN.Randomnum(FP256BN.NewBIGints(FP256BN.CURVE_Order), prg)),
 	}
 
 	sysParams.ys = make([][]interface{}, 2)

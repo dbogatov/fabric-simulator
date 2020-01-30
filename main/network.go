@@ -11,6 +11,7 @@ import (
 // Network ...
 type Network struct {
 	root          CredentialsHolder
+	auditor       KeysHolder
 	organizations []Organization
 	users         []User
 	peers         []Peer
@@ -19,15 +20,21 @@ type Network struct {
 // MakeNetwork ...
 func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 
-	network = &Network{}
+	auditSk, auditPk := dac.GenerateKeys(prg, 2) // user level
 
-	network.root = CredentialsHolder{
-		KeysHolder: KeysHolder{
-			pk: sysParams.rootPk,
-			sk: rootSk,
+	network = &Network{
+		root: CredentialsHolder{
+			KeysHolder: KeysHolder{
+				pk: sysParams.rootPk,
+				sk: rootSk,
+			},
+			credentials: *dac.MakeCredentials(sysParams.rootPk),
+			name:        "Root",
 		},
-		credentials: *dac.MakeCredentials(sysParams.rootPk),
-		name:        "Root",
+		auditor: KeysHolder{
+			pk: auditPk,
+			sk: auditSk,
+		},
 	}
 	credStarter := network.root.credentials.ToBytes()
 

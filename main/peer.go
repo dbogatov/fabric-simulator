@@ -115,6 +115,10 @@ func (peer *Peer) validate(tx *Transaction) {
 
 	peer.validateIdentity(tx.proposal.author, tx.proposal.pkNym, tx.proposal.indices, verification)
 
+	if e := tx.auditProof.Verify(tx.auditEnc, tx.proposal.pkNym, sysParams.network.auditor.pk, sysParams.h); e != nil {
+		panic(e)
+	}
+
 	// somewhere here are read/write conflict check and ledger update
 	// but they are negligible in comparison to crypto
 
@@ -210,6 +214,8 @@ type Transaction struct {
 	payloadSize  int // TODO
 	signature    dac.NymSignature
 	proposal     TransactionProposal
+	auditProof   dac.AuditingProof
+	auditEnc     dac.AuditingEncryption
 	endorsements []Endorsement
 	orderer      int
 	doneChannel  chan bool
