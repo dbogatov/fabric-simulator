@@ -17,6 +17,9 @@ type Network struct {
 	peers         []Peer
 	transactions  []Transaction
 
+	revocationAuthority RevocationAuthority
+	epoch               int
+
 	transactionRecordLock *sync.Mutex
 }
 
@@ -39,6 +42,8 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 			sk: auditSk,
 		},
 		transactionRecordLock: &sync.Mutex{},
+		revocationAuthority:   *MakeRevocationAuthority(),
+		epoch:                 1,
 	}
 	credStarter := network.root.credentials.ToBytes()
 

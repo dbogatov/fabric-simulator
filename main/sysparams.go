@@ -24,6 +24,7 @@ type SystemParameters struct {
 	transactions           int
 	concurrentEndorsements int
 	concurrentValidations  int
+	concurrentRevocations  int
 	bandwidth              int // B/s
 	revoke                 bool
 	audit                  bool
@@ -31,7 +32,7 @@ type SystemParameters struct {
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(orgs, users, peers, endorsements, bandwidth, concurrentEndorsements, concurrentValidations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(orgs, users, peers, endorsements, bandwidth, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
 
 	prg := amcl.NewRAND()
 
@@ -43,6 +44,7 @@ func MakeSystemParameters(orgs, users, peers, endorsements, bandwidth, concurren
 		bandwidth:              bandwidth,
 		concurrentEndorsements: concurrentEndorsements,
 		concurrentValidations:  concurrentValidations,
+		concurrentRevocations:  concurrentRevocations,
 		transactions:           transactions,
 		revoke:                 revoke,
 		audit:                  audit,

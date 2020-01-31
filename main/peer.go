@@ -7,6 +7,7 @@ import (
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
+	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -115,8 +116,17 @@ func (peer *Peer) validate(tx *Transaction) {
 
 	peer.validateIdentity(tx.proposal.author, tx.proposal.pkNym, tx.proposal.indices, verification)
 
-	if e := tx.auditProof.Verify(tx.auditEnc, tx.proposal.pkNym, sysParams.network.auditor.pk, sysParams.h); e != nil {
-		panic(e)
+	if sysParams.audit {
+		if e := tx.auditProof.Verify(tx.auditEnc, tx.proposal.pkNym, sysParams.network.auditor.pk, sysParams.h); e != nil {
+			panic(e)
+		}
+	}
+
+	if sysParams.revoke {
+		// Verify non-revocation
+		if e := tx.nonRevocationProof.Verify(tx.proposal.pkNym, FP256BN.NewBIGint(tx.epoch), sysParams.h, sysParams.network.revocationAuthority.pk, sysParams.ys[0]); e != nil { // TODO check ys
+			panic(e)
+		}
 	}
 
 	// somewhere here are read/write conflict check and ledger update
@@ -211,14 +221,16 @@ func (endorsement Endorsement) name() string {
 
 // Transaction ...
 type Transaction struct {
-	payloadSize  int // TODO
-	signature    dac.NymSignature
-	proposal     TransactionProposal
-	auditProof   dac.AuditingProof
-	auditEnc     dac.AuditingEncryption
-	endorsements []Endorsement
-	orderer      int
-	doneChannel  chan bool
+	payloadSize        int // TODO
+	signature          dac.NymSignature
+	proposal           TransactionProposal
+	auditProof         dac.AuditingProof
+	auditEnc           dac.AuditingEncryption
+	endorsements       []Endorsement
+	nonRevocationProof dac.RevocationProof
+	epoch              int
+	orderer            int
+	doneChannel        chan bool
 }
 
 func (transaction Transaction) size() int {

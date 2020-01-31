@@ -60,6 +60,11 @@ func main() {
 				Value: 10,
 				Usage: "number of concurrent validations a peer can do",
 			},
+			&cli.IntFlag{
+				Name:  "conc-revocations",
+				Value: 10,
+				Usage: "number of concurrent revocations the authority can do",
+			},
 			&cli.BoolFlag{
 				Name:  "revoke",
 				Value: true,
@@ -108,6 +113,7 @@ func main() {
 				c.Int("bandwidth"),
 				c.Int("conc-endorsements"),
 				c.Int("conc-validations"),
+				c.Int("conc-revocations"),
 				c.Int("transactions"),
 				c.Bool("revoke"),
 				c.Bool("audit"),

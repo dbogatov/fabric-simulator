@@ -17,6 +17,11 @@ func simulate(rootSk dac.SK) (e error) {
 	wgUser.Add(sysParams.orgs * sysParams.users)
 
 	for user := 0; user < sysParams.orgs*sysParams.users; user++ {
+
+		if sysParams.revoke {
+			sysParams.network.users[user].requestNonRevocation()
+		}
+
 		go func(user int) {
 			defer wgUser.Done()
 
