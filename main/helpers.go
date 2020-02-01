@@ -2,6 +2,9 @@ package main
 
 import (
 	"math/big"
+	"math/rand"
+	"sync"
+	"time"
 
 	"github.com/dbogatov/fabric-amcl/amcl"
 )
@@ -39,6 +42,43 @@ func sha3(raw []byte) (hash []byte) {
 		sha3.Process(raw[i])
 	}
 	sha3.Hash(hash[:])
+
+	return
+}
+
+func randomString(prg *amcl.RAND, length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	b := make([]byte, length)
+	for i := range b {
+		r := prg.GetByte()
+		b[i] = charset[int(r)%len(charset)]
+	}
+	return string(b)
+}
+
+var randMutex = &sync.Mutex{}
+
+func newRand() (prg *amcl.RAND) {
+
+	randMutex.Lock()
+	defer randMutex.Unlock()
+
+	prg = amcl.NewRAND()
+	goPrg := rand.New(rand.NewSource(time.Now().UnixNano()))
+	var raw [32]byte
+	for i := 0; i < 32; i++ {
+		raw[i] = byte(goPrg.Int())
+	}
+	prg.Seed(32, raw[:])
+
+	return
+}
+
+func newRandSeed(seed []byte) (prg *amcl.RAND) {
+
+	prg = amcl.NewRAND()
+	prg.Seed(len(seed), seed)
 
 	return
 }

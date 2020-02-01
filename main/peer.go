@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
-	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 	"golang.org/x/sync/semaphore"
 )
@@ -40,7 +39,7 @@ type Peer struct {
 
 // MakePeer ...
 func MakePeer(id int) (peer *Peer) {
-	sk, pk := dac.GenerateKeys(amcl.NewRAND(), 0)
+	sk, pk := dac.GenerateKeys(newRand(), 0)
 
 	peer = &Peer{
 		id:                   id,
@@ -107,7 +106,7 @@ func (peer *Peer) validate(tx *Transaction) {
 		panic("too few endorsements")
 	}
 
-	schnorr := dac.MakeSchnorr(amcl.NewRAND(), false)
+	schnorr := dac.MakeSchnorr(newRand(), false)
 	for _, endorsement := range tx.endorsements {
 		if e := schnorr.Verify(sysParams.network.peers[endorsement.endorser].pk, endorsement.signature, tx.proposal.getMessage()); e != nil {
 			panic(e)
@@ -169,7 +168,7 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	executeChaincode()
 
 	// All set!
-	schnorr := dac.MakeSchnorr(amcl.NewRAND(), false)
+	schnorr := dac.MakeSchnorr(newRand(), false)
 
 	logger.Debugf("Peer %d endorsed transaction payload %s", peer.id, tp.from)
 	endorsement := Endorsement{

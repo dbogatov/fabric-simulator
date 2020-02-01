@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/dbogatov/dac-lib/dac"
-	"github.com/dbogatov/fabric-amcl/amcl"
 )
 
 // TransactionProposal ...
@@ -17,13 +16,12 @@ type TransactionProposal struct {
 	author      []byte // marshalled dac.Proof
 	pkNym       interface{}
 	indices     dac.Indices
-	// TODO auditing and revocation
 }
 
 // MakeTransactionProposal ...
 func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, pkNym interface{}, skNym dac.SK) {
 
-	prg := amcl.NewRAND()
+	prg := newRand()
 
 	skNym, pkNym = dac.GenerateNymKeys(prg, user.sk, sysParams.h)
 	indices := dac.Indices{

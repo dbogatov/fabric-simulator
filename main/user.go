@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/dbogatov/dac-lib/dac"
-	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 )
 
@@ -23,7 +22,7 @@ func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
 	user = &User{
 		CredentialsHolder: credHolder,
 		revocationPK:      FP256BN.ECP_generator().Mul(credHolder.sk),
-		id:                id,
+		id:                org*sysParams.users + id,
 		org:               org,
 	}
 
@@ -32,7 +31,9 @@ func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
 
 func (user *User) submitTransaction(message string) {
 
-	prg := amcl.NewRAND()
+	logger.Debugf("user-%d starts transaction with a message %s", user.id, message)
+
+	prg := newRand()
 
 	hash := sha3([]byte(message))
 	endorsers := make([]int, sysParams.endorsements)
@@ -62,6 +63,7 @@ func (user *User) submitTransaction(message string) {
 
 	if sysParams.revoke {
 		if user.epoch != sysParams.network.epoch {
+			logger.Debugf("user-%d (%s) detected epoch change; requesting new handle...", user.id, message)
 			user.epoch = sysParams.network.epoch
 			user.requestNonRevocation()
 		}
@@ -83,7 +85,7 @@ func (user *User) submitTransaction(message string) {
 	if sysParams.audit {
 
 		// fresh auditing encryption and proof every transaction
-		auditEnc, auditR := dac.AuditingEncrypt(amcl.NewRAND(), sysParams.network.auditor.pk, user.pk)
+		auditEnc, auditR := dac.AuditingEncrypt(newRand(), sysParams.network.auditor.pk, user.pk)
 
 		tx.auditEnc = auditEnc
 		tx.auditProof = dac.AuditingProve(prg, auditEnc, user.pk, user.sk, pkNym, skNym, sysParams.network.auditor.pk, auditR, sysParams.h)

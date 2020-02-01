@@ -44,6 +44,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 		transactionRecordLock: &sync.Mutex{},
 		revocationAuthority:   *MakeRevocationAuthority(),
 		epoch:                 1,
+		users:                 make([]User, sysParams.orgs*sysParams.users),
 	}
 	credStarter := network.root.credentials.ToBytes()
 
@@ -68,9 +69,7 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 		go func(org int, seed []byte) {
 			defer wgOrg.Done()
 
-			prg := amcl.NewRAND()
-			prg.Clean()
-			prg.Seed(len(seed), seed)
+			prg := newRandSeed(seed)
 
 			orgSk, orgPk := dac.GenerateKeys(prg, orgLevel)
 
@@ -143,9 +142,7 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 
 				defer wgUser.Done()
 
-				prg := amcl.NewRAND()
-				prg.Clean()
-				prg.Seed(len(seed), seed)
+				prg := newRandSeed(seed)
 
 				userName := fmt.Sprintf("user-%d-%d", org, user)
 				organization := network.organizations[org]
@@ -203,7 +200,7 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 	close(users)
 
 	for user := range users {
-		network.users = append(network.users, *user)
+		network.users[user.id] = *user
 	}
 
 	logger.Info("All users have received their credentials")
@@ -221,8 +218,9 @@ func (network *Network) stop() {
 	for _, peer := range network.peers {
 		peer.exitChannel <- true
 	}
+	network.revocationAuthority.exitChannel <- true
 
-	logger.Info("All peers have been shut down")
+	logger.Info("All peers and the revocation authority have been shut down")
 }
 
 func (network *Network) recordTransaction(tx *Transaction) {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/dbogatov/dac-lib/dac"
-	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 )
 
@@ -21,6 +20,7 @@ type SystemParameters struct {
 	users                  int
 	peers                  int
 	endorsements           int
+	epoch                  int
 	transactions           int
 	concurrentEndorsements int
 	concurrentValidations  int
@@ -32,15 +32,16 @@ type SystemParameters struct {
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(orgs, users, peers, endorsements, bandwidth, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
 
-	prg := amcl.NewRAND()
+	prg := newRand()
 
 	sysParams = &SystemParameters{
 		orgs:                   orgs,
 		users:                  users,
 		peers:                  peers,
 		endorsements:           endorsements,
+		epoch:                  epoch,
 		bandwidth:              bandwidth,
 		concurrentEndorsements: concurrentEndorsements,
 		concurrentValidations:  concurrentValidations,

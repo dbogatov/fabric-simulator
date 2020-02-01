@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
-	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 	"golang.org/x/sync/semaphore"
 )
@@ -24,7 +24,7 @@ type RevocationAuthority struct {
 // MakeRevocationAuthority ...
 func MakeRevocationAuthority() (revocation *RevocationAuthority) {
 
-	groth := dac.MakeGroth(amcl.NewRAND(), true, sysParams.ys[1])
+	groth := dac.MakeGroth(newRand(), true, sysParams.ys[1])
 	sk, pk := groth.Generate()
 
 	revocation = &RevocationAuthority{
@@ -54,6 +54,13 @@ func (revocation *RevocationAuthority) run() {
 
 			go revocation.grant(nrr)
 			continue
+		case <-time.After(time.Duration(sysParams.epoch) * time.Second):
+
+			if sysParams.revoke {
+				sysParams.network.epoch++
+			}
+
+			continue
 		case <-revocation.exitChannel:
 		}
 		break
@@ -65,7 +72,7 @@ func (revocation *RevocationAuthority) grant(nrr *NonRevocationRequest) {
 	defer revocation.semaphore.Release(1)
 
 	nrh := &NonRevocationHandle{
-		handle: dac.SignNonRevoke(amcl.NewRAND(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(sysParams.network.epoch), sysParams.ys[1]),
+		handle: dac.SignNonRevoke(newRand(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(sysParams.network.epoch), sysParams.ys[1]),
 	}
 
 	recordBandwidth("revocation-authority", fmt.Sprintf("user-%d", nrr.userID), nrh)

@@ -4,14 +4,13 @@ import (
 	"sync"
 
 	"github.com/dbogatov/dac-lib/dac"
-	"github.com/dbogatov/fabric-amcl/amcl"
 )
 
 var sysParams SystemParameters
 
 func simulate(rootSk dac.SK) (e error) {
 
-	sysParams.network = MakeNetwork(amcl.NewRAND(), rootSk)
+	sysParams.network = MakeNetwork(newRand(), rootSk)
 
 	var wgUser sync.WaitGroup
 	wgUser.Add(sysParams.orgs * sysParams.users)
@@ -26,7 +25,7 @@ func simulate(rootSk dac.SK) (e error) {
 			defer wgUser.Done()
 
 			for i := 0; i < sysParams.transactions; i++ {
-				message := string(randomBytes(amcl.NewRAND(), 16))
+				message := randomString(newRand(), 16)
 				sysParams.network.users[user].submitTransaction(message)
 			}
 
