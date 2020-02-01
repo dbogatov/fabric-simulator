@@ -76,6 +76,11 @@ func main() {
 				Usage: "whether to do auditing of all transactions at the end",
 			},
 			&cli.BoolFlag{
+				Name:  "global",
+				Value: false,
+				Usage: "whether the network is global; if yes, the bandwidth applies to all connection, otherwise to a single connection",
+			},
+			&cli.BoolFlag{
 				Name:  "verbose",
 				Value: false,
 				Usage: "verbose output",
@@ -110,6 +115,8 @@ func main() {
 			log.SetOutput(f)
 			log.Println("[")
 
+			logger.Critical(c.Int("bandwidth"))
+
 			sys, rootSk := MakeSystemParameters(
 				c.Int("orgs"),
 				c.Int("users"),
@@ -123,6 +130,7 @@ func main() {
 				c.Int("transactions"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
+				c.Bool("global"),
 			)
 			sysParams = *sys
 

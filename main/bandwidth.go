@@ -17,11 +17,19 @@ type transferable interface {
 var bandwidthLoggingMutex = &sync.Mutex{}
 
 func recordBandwidth(from, to string, object transferable) {
+
+	if sysParams.global {
+		bandwidthLoggingMutex.Lock()
+	}
+
 	start := time.Now()
 	time.Sleep(time.Duration((float64(object.size()) / float64(sysParams.bandwidth))) * time.Second)
 	end := time.Now()
 
-	bandwidthLoggingMutex.Lock()
+	if !sysParams.global {
+		bandwidthLoggingMutex.Lock()
+	}
+
 	event, err := json.Marshal(NetworkEvent{
 		From:   from,
 		To:     to,
@@ -36,6 +44,7 @@ func recordBandwidth(from, to string, object transferable) {
 	log.Printf("%s,\n", string(event))
 
 	logger.Debugf("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
+
 	bandwidthLoggingMutex.Unlock()
 }
 

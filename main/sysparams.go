@@ -26,13 +26,16 @@ type SystemParameters struct {
 	concurrentValidations  int
 	concurrentRevocations  int
 	bandwidth              int // B/s
+	global                 bool
 	revoke                 bool
 	audit                  bool
 	network                *Network
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions int, revoke, audit, global bool) (sysParams *SystemParameters, rootSk dac.SK) {
+
+	logger.Critical(bandwidth)
 
 	prg := newRand()
 
@@ -43,6 +46,7 @@ func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, co
 		endorsements:           endorsements,
 		epoch:                  epoch,
 		bandwidth:              bandwidth,
+		global:                 global,
 		concurrentEndorsements: concurrentEndorsements,
 		concurrentValidations:  concurrentValidations,
 		concurrentRevocations:  concurrentRevocations,
@@ -51,6 +55,8 @@ func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, co
 		audit:                  audit,
 		h:                      FP256BN.ECP2_generator().Mul(FP256BN.Randomnum(FP256BN.NewBIGints(FP256BN.CURVE_Order), prg)),
 	}
+
+	logger.Infof("%+v\n", sysParams)
 
 	sysParams.ys = make([][]interface{}, 2)
 	sysParams.ys[0] = dac.GenerateYs(false, YsNum, prg)

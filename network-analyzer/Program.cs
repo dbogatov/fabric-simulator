@@ -1,0 +1,107 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using McMaster.Extensions.CommandLineUtils;
+using Newtonsoft.Json;
+
+namespace NetworkAnalyzer
+{
+	class Program
+	{
+		public static async Task<int> Main(string[] args) => await CommandLineApplication.ExecuteAsync<EntryPoint>(args);
+	}
+
+	[Command(Name = "network-analyzer", Description = "Utility to analyze network traffic after Fabric simulator", ThrowOnUnexpectedArgument = true)]
+	class EntryPoint
+	{
+		[FileExists]
+		[Required]
+		[Option("--input <string>", Description = "JSON file with network log.")]
+		public string InputFile { get; set; } = null;
+
+		[Required]
+		[DirectoryExists]
+		[Option("--output <string>", Description = "Directory to write output files to.")]
+		public string OutputDirectory { get; set; } = null;
+
+		private async Task<int> OnExecute(CommandLineApplication app)
+		{
+			await Analyzer.AnalyzeAsync(InputFile, OutputDirectory);
+
+			return 0;
+		}
+	}
+
+	static class Analyzer
+	{
+		public class NetworkEvent
+		{
+			public string From { get; set; }
+			public string To { get; set; }
+			public string Object { get; set; }
+			public int Size { get; set; }
+			public DateTime Start { get; set; }
+			public DateTime End { get; set; }
+		}
+
+		class IntervalEndpoint
+		{
+			public DateTime When { get; set; }
+			public bool Starts { get; set; }
+		}
+
+		class UsagePoint
+		{
+			public DateTime X { get; set; }
+			public int Y { get; set; }
+		}
+
+		public static async Task AnalyzeAsync(string filePath, string dirPath)
+		{
+			var log = JsonConvert.DeserializeObject<IEnumerable<NetworkEvent>>(
+				await File.ReadAllTextAsync(filePath)
+			);
+
+			Console.WriteLine($"Log size: {log.Count()}");
+
+			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsage(log)));
+
+			foreach (var point in NetworkUsage(log))
+			{
+				Console.WriteLine($"{point.X.Ticks}: {point.Y}");
+			}
+		}
+
+		private static IEnumerable<UsagePoint> NetworkUsage(IEnumerable<NetworkEvent> log)
+		{
+			var intervals = log
+				.Select(e => new List<IntervalEndpoint> {
+					new IntervalEndpoint {
+						When = e.Start,
+						Starts = true
+					},
+					new IntervalEndpoint {
+						When = e.End,
+						Starts = false
+					}
+				})
+				.SelectMany(i => i)
+				.OrderBy(i => i.When);
+
+			var current = 0;
+
+			foreach (var interval in intervals)
+			{
+				current += interval.Starts ? +1 : -1;
+				yield return new UsagePoint
+				{
+					X = interval.When,
+					Y = current
+				};
+			}
+		}
+	}
+}

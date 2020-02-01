@@ -1,3 +1,6 @@
 coverage.*
 report.xml
 network-log.*
+bin/
+obj/
+usage.json

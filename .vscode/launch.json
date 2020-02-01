@@ -5,6 +5,20 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": ".NET Core Launch (console)",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build-analyzer",
+			"program": "${workspaceFolder}/network-analyzer/bin/Debug/netcoreapp3.1/network-analyzer.dll",
+			"args": [
+				"--input",
+				"../network-log.json"
+			],
+			"cwd": "${workspaceFolder}/network-analyzer",
+			"stopAtEntry": false,
+			"console": "internalConsole"
+		},
+		{
 			"name": "Launch",
 			"type": "go",
 			"request": "launch",
