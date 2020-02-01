@@ -124,7 +124,7 @@ func (peer *Peer) validate(tx *Transaction) {
 
 	if sysParams.revoke {
 		// Verify non-revocation
-		if e := tx.nonRevocationProof.Verify(tx.proposal.pkNym, FP256BN.NewBIGint(tx.epoch), sysParams.h, sysParams.network.revocationAuthority.pk, sysParams.ys[0]); e != nil { // TODO check ys
+		if e := tx.nonRevocationProof.Verify(tx.proposal.pkNym, FP256BN.NewBIGint(tx.epoch), sysParams.h, sysParams.network.revocationAuthority.pk, sysParams.ys[1]); e != nil {
 			panic(e)
 		}
 	}

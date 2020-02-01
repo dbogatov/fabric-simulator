@@ -65,7 +65,7 @@ func (revocation *RevocationAuthority) grant(nrr *NonRevocationRequest) {
 	defer revocation.semaphore.Release(1)
 
 	nrh := &NonRevocationHandle{
-		handle: dac.SignNonRevoke(amcl.NewRAND(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(sysParams.network.epoch), sysParams.ys[0]), // TODO check ys
+		handle: dac.SignNonRevoke(amcl.NewRAND(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(sysParams.network.epoch), sysParams.ys[1]),
 	}
 
 	recordBandwidth("revocation-authority", fmt.Sprintf("user-%d", nrr.userID), nrh)

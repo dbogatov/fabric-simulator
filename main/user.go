@@ -12,6 +12,7 @@ import (
 type User struct {
 	CredentialsHolder
 	nonRevocationHandler *dac.GrothSignature
+	revocationPK         dac.PK
 	epoch                int
 	id                   int
 	org                  int
@@ -19,12 +20,11 @@ type User struct {
 
 // MakeUser ...
 func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
-	// TODO
 	user = &User{
 		CredentialsHolder: credHolder,
-		// revocationPK:      dac.PK,
-		id:  id,
-		org: org,
+		revocationPK:      FP256BN.ECP_generator().Mul(credHolder.sk),
+		id:                id,
+		org:               org,
 	}
 
 	return
@@ -105,7 +105,7 @@ func (user *User) submitTransaction(message string) {
 func (user *User) requestNonRevocation() {
 
 	nrr := &NonRevocationRequest{
-		userPk:      user.pk,
+		userPk:      user.revocationPK,
 		doneChannel: make(chan *NonRevocationHandle),
 	}
 	sysParams.network.revocationAuthority.requestChannel <- nrr
