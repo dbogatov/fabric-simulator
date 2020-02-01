@@ -69,19 +69,19 @@ func (peer *Peer) run() {
 	for {
 		select {
 		case tp := <-peer.endorsementChannel:
-			recordBandwidth(tp.from, fmt.Sprintf("peer-%d (endorser)", peer.id), tp)
+			recordBandwidth(fmt.Sprintf("user-%d", tp.authorID), fmt.Sprintf("peer-%d", peer.id), tp)
 			if e := peer.endorsementSemaphore.Acquire(peer.ctx, 1); e != nil {
 				panic(e)
 			}
 			go peer.endorse(tp)
 			continue
 		case tx := <-peer.orderingChannel:
-			recordBandwidth(tx.proposal.from, fmt.Sprintf("peer-%d (orderer)", peer.id), tx)
+			recordBandwidth(fmt.Sprintf("user-%d", tx.proposal.authorID), fmt.Sprintf("peer-%d", peer.id), tx)
 			go peer.order(tx)
 			continue
 		case tx := <-peer.validationChannel:
 			if tx.orderer != peer.id {
-				recordBandwidth(fmt.Sprintf("peer-%d (orderer)", tx.orderer), fmt.Sprintf("peer-%d", peer.id), tx)
+				recordBandwidth(fmt.Sprintf("peer-%d", tx.orderer), fmt.Sprintf("peer-%d", peer.id), tx)
 			}
 			if e := peer.validationSemaphore.Acquire(peer.ctx, 1); e != nil {
 				panic(e)
@@ -170,13 +170,13 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	// All set!
 	schnorr := dac.MakeSchnorr(newRand(), false)
 
-	logger.Debugf("Peer %d endorsed transaction payload %s", peer.id, tp.from)
+	logger.Debugf("Peer %d endorsed transaction payload %s", peer.id, fmt.Sprintf("user-%d", tp.authorID))
 	endorsement := Endorsement{
 		payloadSize: 200, // TODO
 		signature:   schnorr.Sign(peer.sk, tp.getMessage()),
 		endorser:    peer.id,
 	}
-	recordBandwidth(fmt.Sprintf("peer-%d", peer.id), tp.from, endorsement)
+	recordBandwidth(fmt.Sprintf("peer-%d", peer.id), fmt.Sprintf("user-%d", tp.authorID), endorsement)
 
 	tp.doneChannel <- endorsement
 }

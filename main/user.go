@@ -13,20 +13,7 @@ type User struct {
 	nonRevocationHandler *dac.GrothSignature
 	revocationPK         dac.PK
 	epoch                int
-	id                   int
 	org                  int
-}
-
-// MakeUser ...
-func MakeUser(credHolder CredentialsHolder, id, org int) (user *User) {
-	user = &User{
-		CredentialsHolder: credHolder,
-		revocationPK:      FP256BN.ECP_generator().Mul(credHolder.sk),
-		id:                org*sysParams.users + id,
-		org:               org,
-	}
-
-	return
 }
 
 func (user *User) submitTransaction(message string) {
@@ -59,7 +46,7 @@ func (user *User) submitTransaction(message string) {
 		endorsements = append(endorsements, endorsement)
 	}
 
-	logger.Debugf("%s has got all endorsements", user.name)
+	logger.Debugf("%s has got all endorsements", user.name())
 
 	if sysParams.revoke {
 		if user.epoch != sysParams.network.epoch {
@@ -101,7 +88,7 @@ func (user *User) submitTransaction(message string) {
 
 	sysParams.network.recordTransaction(tx)
 
-	logger.Infof("%s transaction completed", user.name)
+	logger.Infof("%s transaction completed", user.name())
 }
 
 func (user *User) requestNonRevocation() {

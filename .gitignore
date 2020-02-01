@@ -1,3 +1,3 @@
 coverage.*
 report.xml
-*.log
+network-log.*

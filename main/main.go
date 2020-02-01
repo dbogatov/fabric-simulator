@@ -96,14 +96,19 @@ func main() {
 		Action: func(c *cli.Context) error {
 			configureLogging(c.Bool("verbose"))
 
-			os.Remove("network-log.log")
-			f, err := os.OpenFile("network-log.log", os.O_WRONLY|os.O_CREATE, 0666)
+			os.Remove("network-log.json")
+			f, err := os.OpenFile("network-log.json", os.O_WRONLY|os.O_CREATE, 0666)
 			if err != nil {
 				logger.Fatalf("error opening file: %v", err)
 			}
-			defer f.Close()
+			defer func() {
+				log.Println("]")
+				f.Close()
+			}()
 
+			log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime)) // to avoid timestamps
 			log.SetOutput(f)
+			log.Println("[")
 
 			sys, rootSk := MakeSystemParameters(
 				c.Int("orgs"),

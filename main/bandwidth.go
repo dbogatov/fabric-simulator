@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -21,9 +22,31 @@ func recordBandwidth(from, to string, object transferable) {
 	end := time.Now()
 
 	bandwidthLoggingMutex.Lock()
-	log.Printf("%s,%s,%s,%d,%s,%s", from, to, object.name(), object.size(), start.Format(time.RFC3339), end.Format(time.RFC3339))
+	event, err := json.Marshal(NetworkEvent{
+		From:   from,
+		To:     to,
+		Object: object.name(),
+		Size:   object.size(),
+		Start:  start.Format(time.RFC3339Nano),
+		End:    end.Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("%s,\n", string(event))
+
 	logger.Debugf("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
 	bandwidthLoggingMutex.Unlock()
+}
+
+// NetworkEvent ...
+type NetworkEvent struct {
+	From   string
+	To     string
+	Object string
+	Size   int
+	Start  string
+	End    string
 }
 
 /// Credentials

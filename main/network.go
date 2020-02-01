@@ -6,6 +6,7 @@ import (
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
+	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 )
 
 // Network ...
@@ -35,7 +36,8 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 				sk: rootSk,
 			},
 			credentials: *dac.MakeCredentials(sysParams.rootPk),
-			name:        "Root",
+			kind:        "root",
+			id:          0,
 		},
 		auditor: KeysHolder{
 			pk: auditPk,
@@ -109,9 +111,9 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 						sk: orgSk,
 					},
 					credentials: *credsOrg,
-					name:        fmt.Sprintf("org-%d", org),
+					kind:        "org",
+					id:          org,
 				},
-				id: org,
 			}
 
 		}(org, randomBytes(prg, 32))
@@ -144,18 +146,19 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 
 				prg := newRandSeed(seed)
 
-				userName := fmt.Sprintf("user-%d-%d", org, user)
+				userName := fmt.Sprintf("user-%d", org*sysParams.users+user)
 				organization := network.organizations[org]
+				orgName := fmt.Sprintf("org-%d", organization.id)
 
 				userSk, userPk := dac.GenerateKeys(prg, userLevel)
 
 				// Credential request
 
 				orgNonce := randomBytes(prg, NonceSize)
-				recordBandwidth(organization.name, userName, Nonce{orgNonce})
+				recordBandwidth(orgName, userName, Nonce{orgNonce})
 
 				credRequest := dac.MakeCredRequest(prg, userSk, orgNonce, userLevel)
-				recordBandwidth(userName, organization.name, CredRequest{credRequest})
+				recordBandwidth(userName, orgName, CredRequest{credRequest})
 
 				if e := credRequest.Validate(); e != nil {
 					panic(e)
@@ -173,24 +176,25 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 				if e := credsUser.Delegate(organization.sk, userPk, attributes, prg, sysParams.ys); e != nil {
 					panic(e)
 				}
-				recordBandwidth(organization.name, userName, Credentials{credsUser})
+				recordBandwidth(orgName, userName, Credentials{credsUser})
 
 				if e := credsUser.Verify(userSk, sysParams.rootPk, sysParams.ys); e != nil {
 					panic(e)
 				}
 
-				users <- MakeUser(
-					CredentialsHolder{
+				users <- &User{
+					CredentialsHolder: CredentialsHolder{
 						KeysHolder: KeysHolder{
 							pk: userPk,
 							sk: userSk,
 						},
 						credentials: *credsUser,
-						name:        userName,
+						kind:        "user",
+						id:          org*sysParams.users + user,
 					},
-					user,
-					org,
-				)
+					revocationPK: FP256BN.ECP_generator().Mul(userSk),
+					org:          org,
+				}
 
 			}(user, org, randomBytes(prg, 32))
 		}

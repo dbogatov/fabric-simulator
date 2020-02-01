@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/dbogatov/dac-lib/dac"
@@ -65,11 +66,15 @@ type KeysHolder struct {
 type CredentialsHolder struct {
 	KeysHolder
 	credentials dac.Credentials
-	name        string
+	id          int
+	kind        string
+}
+
+func (credHolder CredentialsHolder) name() string {
+	return fmt.Sprintf("%s-%d", credHolder.kind, credHolder.id)
 }
 
 // Organization ...
 type Organization struct {
 	CredentialsHolder
-	id int
 }

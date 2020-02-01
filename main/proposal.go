@@ -8,7 +8,6 @@ import (
 type TransactionProposal struct {
 	payloadSize int
 	hash        []byte
-	from        string
 	authorID    int // for checking auditing correctness
 	chaincode   string
 	doneChannel chan Endorsement
@@ -50,12 +49,12 @@ func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, p
 
 	tp = &TransactionProposal{
 		chaincode:   "chaincode: hash | policy: write",
-		from:        user.name,
 		authorID:    user.id,
 		hash:        hash,
 		author:      author,
 		pkNym:       pkNym,
 		indices:     indices,
+		payloadSize: 66, // TODO
 		doneChannel: make(chan Endorsement, sysParams.endorsements),
 	}
 
@@ -70,7 +69,7 @@ func (tp *TransactionProposal) getMessage() (message []byte) {
 
 	message = append(message, tp.hash...)
 	message = append(message, []byte(tp.chaincode)...)
-	message = append(message, []byte(tp.from)...)
+	message = append(message, byte(tp.authorID))
 	message = append(message, tp.author...)
 
 	return
