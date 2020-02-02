@@ -68,11 +68,6 @@ namespace NetworkAnalyzer
 			Console.WriteLine($"Log size: {log.Count()}");
 
 			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsage(log)));
-
-			foreach (var point in NetworkUsage(log))
-			{
-				Console.WriteLine($"{point.X.Ticks}: {point.Y}");
-			}
 		}
 
 		private static IEnumerable<UsagePoint> NetworkUsage(IEnumerable<NetworkEvent> log)

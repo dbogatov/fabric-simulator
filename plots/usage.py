@@ -2,7 +2,7 @@
 
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import export_svgs
-from bokeh.models import DatetimeTickFormatter
+from bokeh.models import DatetimeTickFormatter, WheelZoomTool
 
 import pandas as pd
 from datetime import datetime as dt
@@ -16,8 +16,8 @@ y = list(map(lambda point: point["Y"], data))
 
 plot = figure(
 	x_axis_type="datetime",
-	plot_width=1500,
-	plot_height=300
+	plot_width=1800,
+	plot_height=900
 )
 
 formatterArgs = {}
@@ -25,12 +25,14 @@ for property in ["months", "days", "hours", "hourmin", "minutes", "minsec", "sec
 	formatterArgs[property] = ["%H:%M:%S.%3Ns"]
 plot.xaxis.formatter = DatetimeTickFormatter(**formatterArgs)
 
-# add a line renderer
-plot.line(
+plot.vbar(
 	x=x,
-	y=y,
-	line_width=2
+	top=y,
+	width=1.0
+	# line_width=2
 )
+
+plot.add_tools(WheelZoomTool(dimensions="width"))
 
 # plot.output_backend = "svg"
 # export_svgs(plot, filename="plot.svg")

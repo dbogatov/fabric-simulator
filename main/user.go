@@ -18,7 +18,7 @@ type User struct {
 
 func (user *User) submitTransaction(message string) {
 
-	logger.Debugf("user-%d starts transaction with a message %s", user.id, message)
+	logger.Infof("user-%d starts transaction with a message %s", user.id, message)
 
 	prg := newRand()
 
@@ -57,7 +57,6 @@ func (user *User) submitTransaction(message string) {
 	}
 
 	tx := &Transaction{
-		payloadSize:  200,                                                                         // TODO
 		signature:    dac.SignNym(prg, pkNym, skNym, user.sk, sysParams.h, proposal.getMessage()), // ideally we add endorsements here but its fine for simulations
 		proposal:     *proposal,
 		endorsements: endorsements,

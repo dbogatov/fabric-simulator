@@ -146,7 +146,7 @@ func (peer *Peer) order(tx *Transaction) {
 		other.validationChannel <- tx
 	}
 
-	logger.Debugf("Peer %d has ordered a transaction", peer.id)
+	logger.Debugf("peer-%d has ordered a transaction", peer.id)
 }
 
 func (peer *Peer) endorse(tp *TransactionProposal) {
@@ -170,11 +170,10 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	// All set!
 	schnorr := dac.MakeSchnorr(newRand(), false)
 
-	logger.Debugf("Peer %d endorsed transaction payload %s", peer.id, fmt.Sprintf("user-%d", tp.authorID))
+	logger.Debugf("peer-%d endorsed transaction payload %s", peer.id, fmt.Sprintf("user-%d", tp.authorID))
 	endorsement := Endorsement{
-		payloadSize: 200, // TODO
-		signature:   schnorr.Sign(peer.sk, tp.getMessage()),
-		endorser:    peer.id,
+		signature: schnorr.Sign(peer.sk, tp.getMessage()),
+		endorser:  peer.id,
 	}
 	recordBandwidth(fmt.Sprintf("peer-%d", peer.id), fmt.Sprintf("user-%d", tp.authorID), endorsement)
 
@@ -205,13 +204,13 @@ func executeChaincode() {
 
 // Endorsement ...
 type Endorsement struct {
-	payloadSize int
-	signature   dac.SchnorrSignature
-	endorser    int
+	signature dac.SchnorrSignature
+	endorser  int
 }
 
 func (endorsement Endorsement) size() int {
-	return endorsement.payloadSize
+	// Schnorr(ECP2 + BIG) + endorser ID
+	return 5*32 + CertificateSize
 }
 
 func (endorsement Endorsement) name() string {
@@ -220,7 +219,6 @@ func (endorsement Endorsement) name() string {
 
 // Transaction ...
 type Transaction struct {
-	payloadSize        int // TODO
 	signature          dac.NymSignature
 	proposal           TransactionProposal
 	auditProof         dac.AuditingProof
@@ -233,7 +231,15 @@ type Transaction struct {
 }
 
 func (transaction Transaction) size() int {
-	return transaction.payloadSize
+	auditingSize := 0
+	if sysParams.audit {
+		auditingSize = 4*32 + 2*4*32
+	}
+	revocationSize := 0
+	if sysParams.revoke {
+		revocationSize = 3*32 + 3*(1+2*32) + 4*32 + 4
+	}
+	return len(transaction.signature.ToBytes()) + transaction.proposal.size() + auditingSize + len(transaction.endorsements)*transaction.endorsements[0].size() + revocationSize
 }
 
 func (transaction Transaction) name() string {

@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
 )
@@ -10,6 +13,8 @@ import (
 var sysParams SystemParameters
 
 func simulate(rootSk dac.SK) (e error) {
+
+	start := time.Now()
 
 	sysParams.network = MakeNetwork(newRand(), rootSk)
 
@@ -26,6 +31,10 @@ func simulate(rootSk dac.SK) (e error) {
 			defer wgUser.Done()
 
 			for i := 0; i < sysParams.transactions; i++ {
+				sleep := time.Duration(rand.Intn(sysParams.frequency*1000)) * time.Millisecond
+				logger.Debugf("user-%d will wait %d ms", user, sleep.Milliseconds())
+				time.Sleep(sleep)
+
 				message := randomString(newRand(), 16)
 				sysParams.network.users[user].submitTransaction(message)
 			}
@@ -38,7 +47,7 @@ func simulate(rootSk dac.SK) (e error) {
 	// Auditing
 	if sysParams.audit {
 
-		logger.Infof("Audit started over %d transactions", len(sysParams.network.transactions))
+		logger.Noticef("Audit started over %d transactions", len(sysParams.network.transactions))
 
 		for _, transaction := range sysParams.network.transactions {
 			authorPk := transaction.auditEnc.AuditingDecrypt(sysParams.network.auditor.sk)
@@ -47,11 +56,13 @@ func simulate(rootSk dac.SK) (e error) {
 			}
 		}
 
-		logger.Info("Audit completed")
+		logger.Notice("Audit completed")
 
 	}
 
 	sysParams.network.stop()
+
+	logger.Noticef("Simulation completed in %d seconds", int(math.Round(time.Since(start).Seconds())))
 
 	return
 }

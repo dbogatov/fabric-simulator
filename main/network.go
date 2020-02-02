@@ -50,7 +50,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 	}
 	credStarter := network.root.credentials.ToBytes()
 
-	logger.Info("Root CA has been initialized")
+	logger.Notice("Root CA has been initialized")
 
 	network.generateOrganizations(prg, credStarter, rootSk)
 	network.generateUsers(prg)
@@ -126,7 +126,7 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 		network.organizations = append(network.organizations, org)
 	}
 
-	logger.Info("All organizations have received their credentials")
+	logger.Notice("All organizations have received their credentials")
 }
 
 func (network *Network) generateUsers(prg *amcl.RAND) {
@@ -207,7 +207,7 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 		network.users[user.id] = *user
 	}
 
-	logger.Info("All users have received their credentials")
+	logger.Notice("All users have received their credentials")
 }
 
 func (network *Network) generatePeers() {
@@ -215,7 +215,7 @@ func (network *Network) generatePeers() {
 		network.peers = append(network.peers, *MakePeer(peer))
 	}
 
-	logger.Info("All peers have been spinned up")
+	logger.Notice("All peers have been spinned up")
 }
 
 func (network *Network) stop() {
@@ -224,7 +224,7 @@ func (network *Network) stop() {
 	}
 	network.revocationAuthority.exitChannel <- true
 
-	logger.Info("All peers and the revocation authority have been shut down")
+	logger.Notice("All peers and the revocation authority have been shut down")
 }
 
 func (network *Network) recordTransaction(tx *Transaction) {
@@ -233,4 +233,9 @@ func (network *Network) recordTransaction(tx *Transaction) {
 	defer network.transactionRecordLock.Unlock()
 
 	network.transactions = append(network.transactions, *tx)
+
+	current := len(network.transactions)
+	total := sysParams.transactions * len(sysParams.network.users)
+
+	logger.Noticef("%4.1f%% - transaction %d / %d", 100*float64(current)/float64(total), current, total)
 }

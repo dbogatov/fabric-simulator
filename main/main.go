@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/op/go-logging"
@@ -41,14 +42,24 @@ func main() {
 				Usage: "length of an epoch in seconds",
 			},
 			&cli.IntFlag{
-				Name:  "bandwidth",
+				Name:  "bandwidth-global",
 				Value: 1024 * 1024, // 1 MB/s
-				Usage: "bandwidth in bytes per second",
+				Usage: "global bandwidth in bytes per second",
+			},
+			&cli.IntFlag{
+				Name:  "bandwidth-local",
+				Value: 1024 * 1024 / 10, // 0.1 MB/s
+				Usage: "local bandwidth in bytes per second",
 			},
 			&cli.IntFlag{
 				Name:  "transactions",
 				Value: 25,
 				Usage: "total number of transactions per user",
+			},
+			&cli.IntFlag{
+				Name:  "frequency",
+				Value: 20,
+				Usage: "max wait time in seconds for a user between transactions",
 			},
 			&cli.IntFlag{
 				Name:  "conc-endorsements",
@@ -75,15 +86,10 @@ func main() {
 				Value: false,
 				Usage: "whether to do auditing of all transactions at the end",
 			},
-			&cli.BoolFlag{
-				Name:  "global",
-				Value: false,
-				Usage: "whether the network is global; if yes, the bandwidth applies to all connection, otherwise to a single connection",
-			},
-			&cli.BoolFlag{
+			&cli.StringFlag{
 				Name:  "verbose",
-				Value: false,
-				Usage: "verbose output",
+				Value: "NOTICE",
+				Usage: "verbosity level: CRIT, ERROR, WARN, NOTICE, INFO, DEBUG",
 			},
 		},
 		Name:     "simulator",
@@ -99,7 +105,7 @@ func main() {
 		Copyright: "(c) 2020 Dmytro Bogatov",
 
 		Action: func(c *cli.Context) error {
-			configureLogging(c.Bool("verbose"))
+			configureLogging(strings.ToUpper(c.String("verbose")))
 
 			os.Remove("network-log.json")
 			f, err := os.OpenFile("network-log.json", os.O_WRONLY|os.O_CREATE, 0666)
@@ -115,22 +121,21 @@ func main() {
 			log.SetOutput(f)
 			log.Println("[")
 
-			logger.Critical(c.Int("bandwidth"))
-
 			sys, rootSk := MakeSystemParameters(
 				c.Int("orgs"),
 				c.Int("users"),
 				c.Int("peers"),
 				c.Int("endorsements"),
 				c.Int("epoch"),
-				c.Int("bandwidth"),
+				c.Int("bandwidth-global"),
+				c.Int("bandwidth-local"),
 				c.Int("conc-endorsements"),
 				c.Int("conc-validations"),
 				c.Int("conc-revocations"),
 				c.Int("transactions"),
+				c.Int("frequency"),
 				c.Bool("revoke"),
 				c.Bool("audit"),
-				c.Bool("global"),
 			)
 			sysParams = *sys
 
@@ -144,15 +149,33 @@ func main() {
 	}
 }
 
-func configureLogging(verbose bool) {
+func configureLogging(verbose string) {
 	logging.SetFormatter(
 		logging.MustStringFormatter(`%{color}%{time:15:04:05.000} %{shortfunc:22s} ▶ %{level:8s} %{id:03x}%{color:reset} |	 %{message}`),
 	)
 	levelBackend := logging.AddModuleLevel(logging.NewLogBackend(os.Stdout, "", 0))
-	if verbose {
-		levelBackend.SetLevel(logging.DEBUG, "")
-	} else {
+	switch verbose {
+	case "CRIT":
+		levelBackend.SetLevel(logging.CRITICAL, "")
+		break
+	case "ERROR":
+		levelBackend.SetLevel(logging.ERROR, "")
+		break
+	case "WARN":
+		levelBackend.SetLevel(logging.WARNING, "")
+		break
+	case "NOTICE":
+		levelBackend.SetLevel(logging.NOTICE, "")
+		break
+	case "INFO":
 		levelBackend.SetLevel(logging.INFO, "")
+		break
+	case "DEBUG":
+		levelBackend.SetLevel(logging.DEBUG, "")
+		break
+	default:
+		levelBackend.SetLevel(logging.DEBUG, "")
+		logger.Fatalf("Invalid verbosity level: %s", verbose)
 	}
 	logging.SetBackend(levelBackend)
 }

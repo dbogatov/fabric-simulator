@@ -14,21 +14,61 @@ type transferable interface {
 	name() string
 }
 
-var bandwidthLoggingMutex = &sync.Mutex{}
+// CertificateSize ...
+const CertificateSize = 734 // TODO http://fm4dd.com/openssl/certexamples.shtm
+
+var globalBandwidthLock = &sync.Mutex{}
+var bandwidthLoggingLock = &sync.Mutex{}
+var getLocksLock = &sync.Mutex{}
+
+var connectionsMap = make(map[string]*sync.Mutex)
 
 func recordBandwidth(from, to string, object transferable) {
 
-	if sysParams.global {
-		bandwidthLoggingMutex.Lock()
+	getLocks := func(key string) *sync.Mutex {
+		getLocksLock.Lock()
+		defer getLocksLock.Unlock()
+
+		lock, exists := connectionsMap[key]
+		if !exists {
+			lock = &sync.Mutex{}
+			connectionsMap[key] = lock
+		}
+		return lock
 	}
 
+	getWaitTime := func(bandwidth int) time.Duration {
+		return time.Duration((float64(object.size()) / float64(bandwidth))) * time.Second
+	}
+
+	fromLock := getLocks(from)
+	toLock := getLocks(to)
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	spinWait := func(lock *sync.Mutex, waitTime time.Duration) {
+		defer wg.Done()
+
+		lock.Lock()
+		defer lock.Unlock()
+
+		time.Sleep(waitTime)
+	}
+
+	waitTimeGlobal := getWaitTime(sysParams.bandwidthGlobal)
+	waitTimeLocal := getWaitTime(sysParams.bandwidthLocal)
 	start := time.Now()
-	time.Sleep(time.Duration((float64(object.size()) / float64(sysParams.bandwidth))) * time.Second)
+
+	go spinWait(fromLock, waitTimeLocal)
+	go spinWait(toLock, waitTimeLocal)
+	go spinWait(globalBandwidthLock, waitTimeGlobal)
+
+	wg.Wait()
+
 	end := time.Now()
 
-	if !sysParams.global {
-		bandwidthLoggingMutex.Lock()
-	}
+	bandwidthLoggingLock.Lock()
 
 	event, err := json.Marshal(NetworkEvent{
 		From:   from,
@@ -45,7 +85,7 @@ func recordBandwidth(from, to string, object transferable) {
 
 	logger.Debugf("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
 
-	bandwidthLoggingMutex.Unlock()
+	bandwidthLoggingLock.Unlock()
 }
 
 // NetworkEvent ...
@@ -101,14 +141,4 @@ func (nonce Nonce) size() int {
 
 func (nonce Nonce) name() string {
 	return "nonce"
-}
-
-/// TransactionProposal
-
-func (tp TransactionProposal) size() int {
-	return tp.payloadSize
-}
-
-func (tp TransactionProposal) name() string {
-	return "transaction-proposal"
 }

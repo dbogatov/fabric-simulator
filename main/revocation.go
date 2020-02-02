@@ -56,7 +56,7 @@ func (revocation *RevocationAuthority) run() {
 			continue
 		case <-time.After(time.Duration(sysParams.epoch) * time.Second):
 
-			if sysParams.revoke {
+			if sysParams.revoke && sysParams.network != nil {
 				sysParams.network.epoch++
 			}
 
@@ -77,7 +77,7 @@ func (revocation *RevocationAuthority) grant(nrr *NonRevocationRequest) {
 
 	recordBandwidth("revocation-authority", fmt.Sprintf("user-%d", nrr.userID), nrh)
 
-	logger.Infof("Non-revocation granted to user-%d", nrr.userID)
+	logger.Debugf("Non-revocation granted to user-%d", nrr.userID)
 
 	nrr.doneChannel <- nrh
 }
@@ -90,7 +90,7 @@ type NonRevocationRequest struct {
 }
 
 func (nrr NonRevocationRequest) size() int {
-	return 25 // TODO
+	return 1 + 2*32 + CertificateSize
 }
 
 func (nrr NonRevocationRequest) name() string {
@@ -103,7 +103,7 @@ type NonRevocationHandle struct {
 }
 
 func (nrh NonRevocationHandle) size() int {
-	return 25 // TODO
+	return 3*(1+2*32) + 4*32
 }
 
 func (nrh NonRevocationHandle) name() string {

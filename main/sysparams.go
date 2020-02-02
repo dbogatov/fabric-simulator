@@ -22,20 +22,19 @@ type SystemParameters struct {
 	endorsements           int
 	epoch                  int
 	transactions           int
+	frequency              int
 	concurrentEndorsements int
 	concurrentValidations  int
 	concurrentRevocations  int
-	bandwidth              int // B/s
-	global                 bool
+	bandwidthGlobal        int // B/s
+	bandwidthLocal         int // B/s
 	revoke                 bool
 	audit                  bool
 	network                *Network
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions int, revoke, audit, global bool) (sysParams *SystemParameters, rootSk dac.SK) {
-
-	logger.Critical(bandwidth)
+func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidthGlobal, bandwidthLocal, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions, frequency int, revoke, audit bool) (sysParams *SystemParameters, rootSk dac.SK) {
 
 	prg := newRand()
 
@@ -45,8 +44,9 @@ func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, co
 		peers:                  peers,
 		endorsements:           endorsements,
 		epoch:                  epoch,
-		bandwidth:              bandwidth,
-		global:                 global,
+		bandwidthGlobal:        bandwidthGlobal,
+		bandwidthLocal:         bandwidthLocal,
+		frequency:              frequency,
 		concurrentEndorsements: concurrentEndorsements,
 		concurrentValidations:  concurrentValidations,
 		concurrentRevocations:  concurrentRevocations,
@@ -56,7 +56,7 @@ func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidth, co
 		h:                      FP256BN.ECP2_generator().Mul(FP256BN.Randomnum(FP256BN.NewBIGints(FP256BN.CURVE_Order), prg)),
 	}
 
-	logger.Infof("%+v\n", sysParams)
+	logger.Noticef("%+v\n", sysParams)
 
 	sysParams.ys = make([][]interface{}, 2)
 	sysParams.ys[0] = dac.GenerateYs(false, YsNum, prg)
