@@ -8,28 +8,23 @@ from bokeh.palettes import Spectral8
 import pandas as pd
 from datetime import datetime as dt
 import json
+import math
 
 with open("../usage.json") as f:
 	data = json.load(f)
 
-# intervals = list(map(lambda point: pd.to_datetime(point), data["Intervals"]))
-categories = list(data["Categories"])
+categories = data["BarCategories"]
 sourceData = {
 	"intervals": data["Intervals"]
 }
 for category in categories:
-	sourceData[category] = data["Data"][category]
+	sourceData[category] = data["BarData"][category]
 
 plot = figure(
 	x_range=data["Intervals"],
 	plot_width=1800,
 	plot_height=500
 )
-
-formatterArgs = {}
-for property in ["months", "days", "hours", "hourmin", "minutes", "minsec", "seconds", "milliseconds"]:
-	formatterArgs[property] = ["%H:%M:%S.%3Ns"]
-plot.xaxis.formatter = DatetimeTickFormatter(**formatterArgs)
 
 plot.vbar_stack(
 	categories,
@@ -39,6 +34,28 @@ plot.vbar_stack(
 	legend_label=categories,
 	color=Spectral8
 )
+
+latencyMap = lambda latency: list(map(lambda l: 8 + (math.log(l, 10) if l > 0 else 0), latency))
+
+plot.line(
+	data["Intervals"],
+	latencyMap(data["LatencyReal"]),
+	line_width=2,
+	color="red"
+)
+
+plot.line(
+	data["Intervals"],
+	latencyMap(data["LatencyIdeal"]),
+	line_width=2,
+	color="green"
+)
+
+plot.xaxis.visible = False
+
+# plot.extra_y_ranges = {"latency": Range1d(start=0, end=100)}
+# p.circle(x, y2, color="blue", y_range_name="foo")
+# p.add_layout(LinearAxis(y_range_name="foo"), 'left')
 
 plot.add_tools(WheelZoomTool(dimensions="width"))
 plot.add_tools(HoverTool(tooltips="$name @$name"))

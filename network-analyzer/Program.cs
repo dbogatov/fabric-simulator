@@ -45,6 +45,9 @@ namespace NetworkAnalyzer
 			public int Size { get; set; }
 			public DateTime Start { get; set; }
 			public DateTime End { get; set; }
+			public int LocalBandwidth { get; set; }
+			public int GlobalBandwidth { get; set; }
+			public long ID { get; set; }
 		}
 
 		class IntervalEndpoint
@@ -52,13 +55,20 @@ namespace NetworkAnalyzer
 			public string Object { get; set; }
 			public DateTime When { get; set; }
 			public bool Starts { get; set; }
+			public TimeSpan Elapsed { get; set; }
+			public long Id { get; set; }
+			public int Size { get; set; }
 		}
 
-		class StackedBarChartData
+		class ChartData
 		{
-			public IEnumerable<string> Categories { get; set; }
 			public List<DateTime> Intervals { get; set; }
-			public Dictionary<string, List<int>> Data { get; set; }
+
+			public IEnumerable<string> BarCategories { get; set; }
+			public Dictionary<string, List<int>> BarData { get; set; }
+
+			public List<double> LatencyIdeal { get; set; }
+			public List<double> LatencyReal { get; set; }
 		}
 
 		public static async Task AnalyzeAsync(string filePath, string dirPath)
@@ -72,47 +82,74 @@ namespace NetworkAnalyzer
 			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsageStackedBarChart(log)));
 		}
 
-		private static StackedBarChartData NetworkUsageStackedBarChart(IEnumerable<NetworkEvent> log)
+		private static ChartData NetworkUsageStackedBarChart(IEnumerable<NetworkEvent> log)
 		{
-			var result = new StackedBarChartData();
+			var result = new ChartData()
+			{
+				Intervals = new List<DateTime>(),
+				LatencyReal = new List<double>(),
+				LatencyIdeal = new List<double>()
+			};
 
-			result.Categories = log.Select(e => e.Object).ToHashSet();
-			result.Data = result.Categories.ToDictionary(c => c, _ => new List<int>());
-			result.Intervals = new List<DateTime>();
+			var localBandwidth = log.First().LocalBandwidth;
+
+			result.BarCategories = log.Select(e => e.Object).ToHashSet();
+			result.BarData = result.BarCategories.ToDictionary(c => c, _ => new List<int>());
+
+			Func<NetworkEvent, bool, IntervalEndpoint> toInterval =
+				(e, starts) => new IntervalEndpoint
+				{
+					Object = e.Object,
+					When = starts ? e.Start : e.End,
+					Starts = starts,
+					Elapsed = e.End - e.Start,
+					Id = e.ID,
+					Size = e.Size
+				};
 
 			var intervals = log
 				.Select(e => new List<IntervalEndpoint> {
-					new IntervalEndpoint {
-						Object = e.Object,
-						When = e.Start,
-						Starts = true
-					},
-					new IntervalEndpoint {
-						Object = e.Object,
-						When = e.End,
-						Starts = false
-					}
+					toInterval(e, true),
+					toInterval(e, false)
 				})
 				.SelectMany(i => i)
 				.OrderBy(i => i.When);
 
 			var timestamps = intervals.Select(i => i.When);
 
-			var intervalSize = (timestamps.Max() - timestamps.Min()) / 1000;
+			var intervalSize = TimeSpan.FromMilliseconds(50);
+			// (timestamps.Max() - timestamps.Min()) / 1000;
 
 			Console.WriteLine($"Intervals number: {(timestamps.Max() - timestamps.Min()) / intervalSize}");
 
-			var current = result.Categories.ToDictionary(c => c, c => 0);
+			var current = result.BarCategories.ToDictionary(c => c, c => 0);
 
 			for (var cursor = timestamps.Min(); cursor < timestamps.Max(); cursor += intervalSize)
 			{
 				var inInterval = intervals.Where(i => i.When >= cursor && i.When <= cursor + intervalSize);
 
-				foreach (var category in result.Categories)
+				foreach (var category in result.BarCategories)
 				{
 					current[category] += inInterval.Where(i => i.Object == category).Select(i => i.Starts ? +1 : -1).Sum();
-					result.Data[category].Add(current[category]);
+					result.BarData[category].Add(current[category]);
 				}
+
+				// TODO include those started before and ending after current interval
+				var latencies = inInterval.Select(i =>
+				{
+					var ideal = TimeSpan.FromMilliseconds(1000 * (double)i.Size / (double)localBandwidth);
+					return (ideal: ideal, real: i.Elapsed);
+				});
+
+				Func<Func<(TimeSpan ideal, TimeSpan real), TimeSpan>, TimeSpan> avg =
+					selector => TimeSpan.FromTicks(latencies.Count() > 0 ? Convert.ToInt64(latencies.Select(l => selector(l).Ticks).Average()) : 0);
+
+				var ideal = avg(l => l.ideal);
+				var real = avg(l => l.real);
+
+				result.LatencyIdeal.Add(ideal.TotalMilliseconds);
+				result.LatencyReal.Add(real.TotalMilliseconds);
+
 				result.Intervals.Add(cursor);
 			}
 

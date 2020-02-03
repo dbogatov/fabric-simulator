@@ -11,5 +11,7 @@
 		"orgs",
 		"schnorr",
 		"urfave"
-	]
+	],
+	"python.pythonPath": "/usr/local/bin/python3",
+	"python.linting.pylintEnabled": true
 }

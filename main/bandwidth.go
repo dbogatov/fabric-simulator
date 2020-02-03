@@ -20,6 +20,7 @@ const CertificateSize = 734 // TODO http://fm4dd.com/openssl/certexamples.shtm
 var globalBandwidthLock = &sync.Mutex{}
 var bandwidthLoggingLock = &sync.Mutex{}
 var getLocksLock = &sync.Mutex{}
+var networkEventID uint64 = 1
 
 var connectionsMap = make(map[string]*sync.Mutex)
 
@@ -71,12 +72,15 @@ func recordBandwidth(from, to string, object transferable) {
 	bandwidthLoggingLock.Lock()
 
 	event, err := json.Marshal(NetworkEvent{
-		From:   from,
-		To:     to,
-		Object: object.name(),
-		Size:   object.size(),
-		Start:  start.Format(time.RFC3339Nano),
-		End:    end.Format(time.RFC3339Nano),
+		From:            from,
+		To:              to,
+		Object:          object.name(),
+		Size:            object.size(),
+		Start:           start.Format(time.RFC3339Nano),
+		End:             end.Format(time.RFC3339Nano),
+		LocalBandwidth:  sysParams.bandwidthLocal,
+		GlobalBandwidth: sysParams.bandwidthGlobal,
+		ID:              networkEventID,
 	})
 	if err != nil {
 		panic(err)
@@ -85,17 +89,22 @@ func recordBandwidth(from, to string, object transferable) {
 
 	logger.Debugf("%s sent %d bytes of %s to %s\n", from, object.size(), object.name(), to)
 
+	networkEventID++
+
 	bandwidthLoggingLock.Unlock()
 }
 
 // NetworkEvent ...
 type NetworkEvent struct {
-	From   string
-	To     string
-	Object string
-	Size   int
-	Start  string
-	End    string
+	From            string
+	To              string
+	Object          string
+	Size            int
+	Start           string
+	End             string
+	GlobalBandwidth int
+	LocalBandwidth  int
+	ID              uint64
 }
 
 /// Credentials
