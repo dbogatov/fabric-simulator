@@ -49,14 +49,16 @@ namespace NetworkAnalyzer
 
 		class IntervalEndpoint
 		{
+			public string Object { get; set; }
 			public DateTime When { get; set; }
 			public bool Starts { get; set; }
 		}
 
-		class UsagePoint
+		class StackedBarChartData
 		{
-			public DateTime X { get; set; }
-			public int Y { get; set; }
+			public IEnumerable<string> Categories { get; set; }
+			public List<DateTime> Intervals { get; set; }
+			public Dictionary<string, List<int>> Data { get; set; }
 		}
 
 		public static async Task AnalyzeAsync(string filePath, string dirPath)
@@ -67,18 +69,26 @@ namespace NetworkAnalyzer
 
 			Console.WriteLine($"Log size: {log.Count()}");
 
-			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsage(log)));
+			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsageStackedBarChart(log)));
 		}
 
-		private static IEnumerable<UsagePoint> NetworkUsage(IEnumerable<NetworkEvent> log)
+		private static StackedBarChartData NetworkUsageStackedBarChart(IEnumerable<NetworkEvent> log)
 		{
+			var result = new StackedBarChartData();
+
+			result.Categories = log.Select(e => e.Object).ToHashSet();
+			result.Data = result.Categories.ToDictionary(c => c, _ => new List<int>());
+			result.Intervals = new List<DateTime>();
+
 			var intervals = log
 				.Select(e => new List<IntervalEndpoint> {
 					new IntervalEndpoint {
+						Object = e.Object,
 						When = e.Start,
 						Starts = true
 					},
 					new IntervalEndpoint {
+						Object = e.Object,
 						When = e.End,
 						Starts = false
 					}
@@ -86,17 +96,27 @@ namespace NetworkAnalyzer
 				.SelectMany(i => i)
 				.OrderBy(i => i.When);
 
-			var current = 0;
+			var timestamps = intervals.Select(i => i.When);
 
-			foreach (var interval in intervals)
+			var intervalSize = (timestamps.Max() - timestamps.Min()) / 1000;
+
+			Console.WriteLine($"Intervals number: {(timestamps.Max() - timestamps.Min()) / intervalSize}");
+
+			var current = result.Categories.ToDictionary(c => c, c => 0);
+
+			for (var cursor = timestamps.Min(); cursor < timestamps.Max(); cursor += intervalSize)
 			{
-				current += interval.Starts ? +1 : -1;
-				yield return new UsagePoint
+				var inInterval = intervals.Where(i => i.When >= cursor && i.When <= cursor + intervalSize);
+
+				foreach (var category in result.Categories)
 				{
-					X = interval.When,
-					Y = current
-				};
+					current[category] += inInterval.Where(i => i.Object == category).Select(i => i.Starts ? +1 : -1).Sum();
+					result.Data[category].Add(current[category]);
+				}
+				result.Intervals.Add(cursor);
 			}
+
+			return result;
 		}
 	}
 }

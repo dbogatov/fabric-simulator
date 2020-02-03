@@ -38,7 +38,7 @@ func recordBandwidth(from, to string, object transferable) {
 	}
 
 	getWaitTime := func(bandwidth int) time.Duration {
-		return time.Duration((float64(object.size()) / float64(bandwidth))) * time.Second
+		return time.Duration(1000*(float64(object.size())/float64(bandwidth))) * time.Millisecond
 	}
 
 	fromLock := getLocks(from)
