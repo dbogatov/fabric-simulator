@@ -36,3 +36,9 @@ gemnasium-python-dependency_scanning:
     - ./configure
     - make
     - make install
+    - cd ..
+    - git clone https://github.com/LuaDist/libjpeg.git
+    - cd libjpeg/
+    - ./configure
+    - make
+    - make install
