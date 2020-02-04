@@ -2,7 +2,7 @@
 
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import export_svgs
-from bokeh.models import DatetimeTickFormatter, WheelZoomTool, HoverTool
+from bokeh.models import WheelZoomTool, HoverTool, Range1d, LinearAxis, FuncTickFormatter
 from bokeh.palettes import Spectral6
 
 from datetime import datetime as dt
@@ -12,7 +12,6 @@ import math
 with open("../usage.json") as f:
 	data = json.load(f)
 
-# categories = data["BarCategories"]
 categories = ["transaction", "transaction-proposal", "endorsement", "non-revocation-request", "non-revocation-handle", "credentials"]
 sourceData = {
 	"intervals": data["Intervals"]
@@ -22,8 +21,9 @@ for category in categories:
 
 plot = figure(
 	x_range=data["Intervals"],
-	plot_width=1800,
-	plot_height=500
+	plot_width=2500,
+	plot_height=500,
+	extra_y_ranges={"latency": Range1d(start=-20, end=18, min_interval=1.0)}
 )
 
 plot.vbar_stack(
@@ -31,36 +31,47 @@ plot.vbar_stack(
 	x="intervals",
 	width=1.0,
 	source=sourceData,
-	legend_label=categories,
+	legend_label=list(map(lambda c: c + "  ", categories)),
 	color=Spectral6
 )
 
-latencyMap = lambda latency: list(map(lambda l: 8 + (math.log(l, 10) if l > 0 else 0), latency))
+
+def latencyMap(latency):
+	return list(map(lambda l: (math.log(l, 2) if l > 0 else 0), latency))
+
 
 plot.line(
 	data["Intervals"],
 	latencyMap(data["LatencyReal"]),
 	line_width=2,
-	color="red"
+	color="red",
+	y_range_name="latency"
 )
 
 plot.line(
 	data["Intervals"],
 	latencyMap(data["LatencyIdeal"]),
 	line_width=2,
-	color="green"
+	color="green",
+	y_range_name="latency"
 )
 
 plot.xaxis.visible = False
 
-# plot.extra_y_ranges = {"latency": Range1d(start=0, end=100)}
-# p.circle(x, y2, color="blue", y_range_name="foo")
-# p.add_layout(LinearAxis(y_range_name="foo"), 'left')
+plot.add_layout(LinearAxis(y_range_name="latency"), 'right')
 
+plot.yaxis[1].formatter = FuncTickFormatter(code='''
+return tick < 0 ? "" : 2 + tick.toString(10).split('').map(function (d) { return d === '-' ? '⁻' : (d === '.' ? '\u22c5' : '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]); }).join('');
+''')
 plot.add_tools(WheelZoomTool(dimensions="width"))
-plot.add_tools(HoverTool(tooltips="$name @$name"))
+plot.add_tools(HoverTool(tooltips="$name: @$name"))
 
-# plot.output_backend = "svg"
-# export_svgs(plot, filename="plot.svg")
+plot.legend.orientation = "horizontal"
+plot.legend.location = "top_left"
+
+plot.xgrid.grid_line_color = None
+
+plot.output_backend = "svg"
+export_svgs(plot, filename="plot.svg")
 
 show(plot)
