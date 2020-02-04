@@ -21,7 +21,7 @@ for category in categories:
 
 plot = figure(
 	x_range=data["Intervals"],
-	plot_width=2500,
+	plot_width=1800,
 	plot_height=500,
 	extra_y_ranges={"latency": Range1d(start=-20, end=18, min_interval=1.0)}
 )
