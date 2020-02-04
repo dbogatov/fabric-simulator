@@ -5,7 +5,6 @@ from bokeh.io import export_svgs
 from bokeh.models import DatetimeTickFormatter, WheelZoomTool, HoverTool
 from bokeh.palettes import Spectral8
 
-import pandas as pd
 from datetime import datetime as dt
 import json
 import math
