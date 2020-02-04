@@ -27,3 +27,12 @@ dependency_scanning:
     DS_DISABLE_DIND: "true"
   tags:
     - docker
+
+gemnasium-python-dependency_scanning:
+  before_script:
+    - wget -O zlib.tar.gz https://www.zlib.net/zlib-1.2.11.tar.gz
+    - tar xvf zlib.tar.gz
+    - cd zlib-1.2.11/
+    - ./configure
+    - make
+    - make install

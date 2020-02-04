@@ -3,7 +3,7 @@
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import export_svgs
 from bokeh.models import DatetimeTickFormatter, WheelZoomTool, HoverTool
-from bokeh.palettes import Spectral8
+from bokeh.palettes import Spectral6
 
 from datetime import datetime as dt
 import json
@@ -12,7 +12,8 @@ import math
 with open("../usage.json") as f:
 	data = json.load(f)
 
-categories = data["BarCategories"]
+# categories = data["BarCategories"]
+categories = ["transaction", "transaction-proposal", "endorsement", "non-revocation-request", "non-revocation-handle", "credentials"]
 sourceData = {
 	"intervals": data["Intervals"]
 }
@@ -31,7 +32,7 @@ plot.vbar_stack(
 	width=1.0,
 	source=sourceData,
 	legend_label=categories,
-	color=Spectral8
+	color=Spectral6
 )
 
 latencyMap = lambda latency: list(map(lambda l: 8 + (math.log(l, 10) if l > 0 else 0), latency))

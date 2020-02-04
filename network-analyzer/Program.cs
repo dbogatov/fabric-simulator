@@ -93,7 +93,7 @@ namespace NetworkAnalyzer
 
 			var localBandwidth = log.First().LocalBandwidth;
 
-			result.BarCategories = log.Select(e => e.Object).ToHashSet();
+			result.BarCategories = log.Select(e => e.Object).Where(c => c != "nonce" && c != "cred-request").ToHashSet();
 			result.BarData = result.BarCategories.ToDictionary(c => c, _ => new List<int>());
 
 			Func<NetworkEvent, bool, IntervalEndpoint> toInterval =
@@ -124,6 +124,8 @@ namespace NetworkAnalyzer
 
 			var current = result.BarCategories.ToDictionary(c => c, c => 0);
 
+			var active = new List<IntervalEndpoint>();
+
 			for (var cursor = timestamps.Min(); cursor < timestamps.Max(); cursor += intervalSize)
 			{
 				var inInterval = intervals.Where(i => i.When >= cursor && i.When <= cursor + intervalSize);
@@ -134,8 +136,13 @@ namespace NetworkAnalyzer
 					result.BarData[category].Add(current[category]);
 				}
 
-				// TODO include those started before and ending after current interval
-				var latencies = inInterval.Select(i =>
+				active.AddRange(inInterval.Where(i => i.Starts));
+				foreach (var ended in inInterval.Where(i => !i.Starts))
+				{
+					active.RemoveAll(i => i.Id == ended.Id);
+				}
+
+				var latencies = active.Select(i =>
 				{
 					var ideal = TimeSpan.FromMilliseconds(1000 * (double)i.Size / (double)localBandwidth);
 					return (ideal: ideal, real: i.Elapsed);
