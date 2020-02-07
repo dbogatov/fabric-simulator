@@ -30,13 +30,19 @@ func simulate(rootSk dac.SK) (e error) {
 		go func(user int) {
 			defer wgUser.Done()
 
+			// first sleep uniform
+			time.Sleep(time.Duration(rand.Intn(sysParams.frequency*1000)) * time.Millisecond)
+
 			for i := 0; i < sysParams.transactions; i++ {
-				sleep := time.Duration(rand.Intn(sysParams.frequency*1000)) * time.Millisecond
+				userObj := sysParams.network.users[user]
+
+				// subsequent sleeps Poisson
+				sleep := time.Duration((3600.0/userObj.poisson.Rand())*1000) * time.Millisecond
 				logger.Debugf("user-%d will wait %d ms", user, sleep.Milliseconds())
 				time.Sleep(sleep)
 
 				message := randomString(newRand(), 16)
-				sysParams.network.users[user].submitTransaction(message)
+				userObj.submitTransaction(message)
 			}
 
 		}(user)

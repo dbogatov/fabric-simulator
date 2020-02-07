@@ -5,6 +5,7 @@ import (
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 // User ...
@@ -14,6 +15,7 @@ type User struct {
 	revocationPK         dac.PK
 	epoch                int
 	org                  int
+	poisson              distuv.Poisson
 }
 
 func (user *User) submitTransaction(message string) {

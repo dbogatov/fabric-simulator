@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -55,6 +56,14 @@ func randomString(prg *amcl.RAND, length int) string {
 		b[i] = charset[int(r)%len(charset)]
 	}
 	return string(b)
+}
+
+func randomULong(prg *amcl.RAND) uint64 {
+	var raw [8]byte
+	for i := 0; i < 8; i++ {
+		raw[i] = prg.GetByte()
+	}
+	return binary.BigEndian.Uint64(raw[:])
 }
 
 var randMutex = &sync.Mutex{}

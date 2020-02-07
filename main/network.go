@@ -7,6 +7,7 @@ import (
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 // Network ...
@@ -194,6 +195,9 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 					},
 					revocationPK: FP256BN.ECP_generator().Mul(userSk),
 					org:          org,
+					poisson: distuv.Poisson{
+						Lambda: 3600.0 / float64(sysParams.frequency),
+					},
 				}
 
 			}(user, org, randomBytes(prg, 32))

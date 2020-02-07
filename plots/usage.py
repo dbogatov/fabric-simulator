@@ -32,7 +32,7 @@ plot.vbar_stack(
 	width=1.0,
 	source=sourceData,
 	legend_label=list(map(lambda c: c + "  ", categories)),
-	color=Spectral6
+	color=["#6d8ef9", "#7460e6", "#cc397e", "#eb6c2c", "#f4b23f", "#58595b"]
 )
 
 
