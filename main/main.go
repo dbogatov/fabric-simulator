@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/dbogatov/fabric-simulator/revocation"
@@ -36,6 +37,9 @@ func main() {
 		Description: "Set of tools to do Fabric simulations",
 		Before: func(c *cli.Context) error {
 			configureLogging(strings.ToUpper(c.String("verbose")))
+
+			logger.Criticalf("GOMAXPROCS: %d", runtime.GOMAXPROCS(0))
+
 			return nil
 		},
 		Commands: []*cli.Command{
