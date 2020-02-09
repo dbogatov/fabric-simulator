@@ -9,8 +9,7 @@ import (
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 )
 
-var sk dac.SK
-var pk dac.PK
+var skRevoke dac.SK
 var ys []interface{}
 var epoch *FP256BN.BIG
 
@@ -18,7 +17,7 @@ var epoch *FP256BN.BIG
 func RunServer() {
 	logger.Notice("Server starting. Ctl+C to stop")
 
-	ys, _, sk, pk, epoch = generateAuthority()
+	ys, _, skRevoke, _, epoch = generateAuthority()
 
 	http.HandleFunc("/", handleRevocationRequest)
 	http.ListenAndServe(":8765", nil)
@@ -37,8 +36,10 @@ func handleRevocationRequest(w http.ResponseWriter, r *http.Request) {
 		panic(e)
 	}
 
-	signature := dac.SignNonRevoke(prg, sk, userPK, epoch, ys)
+	signature := dac.SignNonRevoke(prg, skRevoke, userPK, epoch, ys)
 	signatureBytes := signature.ToBytes()
+
+	logger.Debug("Granting handle.")
 
 	w.Write(signatureBytes)
 }

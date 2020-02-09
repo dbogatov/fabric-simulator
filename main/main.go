@@ -58,8 +58,29 @@ func main() {
 					{
 						Name:  "client",
 						Usage: "client part of the simulation",
+						Flags: []cli.Flag{
+							&cli.IntFlag{
+								Name:  "runs",
+								Value: 1000,
+								Usage: "total number of requests",
+							},
+							&cli.IntFlag{
+								Name:  "concurrent",
+								Value: 100,
+								Usage: "number of concurrent requests",
+							},
+							&cli.BoolFlag{
+								Name:  "trust",
+								Value: false,
+								Usage: "if set, will not verify signatures",
+							},
+						},
 						Action: func(c *cli.Context) error {
-							revocation.StartRequests()
+							revocation.StartRequests(
+								c.Int("runs"),
+								c.Int("concurrent"),
+								c.Bool("trust"),
+							)
 							return nil
 						},
 					},
