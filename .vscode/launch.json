@@ -19,7 +19,7 @@
 			"console": "internalConsole"
 		},
 		{
-			"name": "Launch",
+			"name": "Launch simualtor",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
@@ -32,6 +32,20 @@
 				"2",
 				"--revoke",
 				"--verbose"
+			]
+		},
+		{
+			"name": "Launch server",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${cwd}/main/",
+			"env": {},
+			"args": [
+				"--verbose",
+				"debug",
+				"revocation",
+				"server"
 			]
 		}
 	]

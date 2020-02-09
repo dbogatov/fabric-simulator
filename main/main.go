@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -43,13 +42,16 @@ func main() {
 			{
 				Name:  "revocation",
 				Usage: "revocation client-server simulation",
+				Before: func(c *cli.Context) error {
+					revocation.SetLogger(logger)
+					return nil
+				},
 				Subcommands: []*cli.Command{
 					{
 						Name:  "server",
 						Usage: "server part of the simulation",
 						Action: func(c *cli.Context) error {
-							fmt.Println("SERVER")
-							revocation.Hello()
+							revocation.RunServer()
 							return nil
 						},
 					},
@@ -57,7 +59,7 @@ func main() {
 						Name:  "client",
 						Usage: "client part of the simulation",
 						Action: func(c *cli.Context) error {
-							fmt.Println("CLIENT")
+							revocation.StartRequests()
 							return nil
 						},
 					},
