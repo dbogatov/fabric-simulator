@@ -4,5 +4,5 @@ network-log.*
 bin/
 obj/
 usage.json
-plots/*.html
-plots/*.svg
+tools/plots/*.html
+tools/plots/*.svg
