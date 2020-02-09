@@ -75,6 +75,7 @@ func (revocation *RevocationAuthority) grant(nrr *NonRevocationRequest) {
 		handle: dac.SignNonRevoke(newRand(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(sysParams.network.epoch), sysParams.ys[1]),
 	}
 
+	recordCryptoEvent(nonRevokeGrant)
 	recordBandwidth("revocation-authority", fmt.Sprintf("user-%d", nrr.userID), nrh)
 
 	logger.Debugf("Non-revocation granted to user-%d", nrr.userID)

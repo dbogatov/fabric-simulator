@@ -40,6 +40,7 @@ func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, p
 		sysParams.h,
 		skNym,
 	)
+	recordCryptoEvent(credProve)
 
 	if e != nil {
 		panic(e)
@@ -57,6 +58,7 @@ func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, p
 	}
 
 	tp.signature = dac.SignNym(prg, pkNym, skNym, user.sk, sysParams.h, tp.getMessage())
+	recordCryptoEvent(signNym)
 
 	return
 }

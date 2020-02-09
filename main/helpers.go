@@ -37,6 +37,8 @@ func peerByHash(hash []byte, peers int) (peer int) {
 
 func sha3(raw []byte) (hash []byte) {
 
+	recordCryptoEvent(sha3hash)
+
 	hash = make([]byte, 32)
 	sha3 := amcl.NewSHA3(amcl.SHA3_HASH256)
 	for i := 0; i < len(raw); i++ {

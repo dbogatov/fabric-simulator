@@ -31,6 +31,8 @@ type SystemParameters struct {
 	revoke                 bool
 	audit                  bool
 	network                *Network
+	cryptoEvents           map[CryptoEvent]int
+	transactionTimings     []TransactionTimingInfo
 }
 
 // MakeSystemParameters ...
@@ -54,6 +56,8 @@ func MakeSystemParameters(orgs, users, peers, endorsements, epoch, bandwidthGlob
 		revoke:                 revoke,
 		audit:                  audit,
 		h:                      FP256BN.ECP2_generator().Mul(FP256BN.Randomnum(FP256BN.NewBIGints(FP256BN.CURVE_Order), prg)),
+		cryptoEvents:           make(map[CryptoEvent]int, 0),
+		transactionTimings:     make([]TransactionTimingInfo, 0),
 	}
 
 	logger.Noticef("%+v\n", sysParams)

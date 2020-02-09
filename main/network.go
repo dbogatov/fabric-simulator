@@ -99,6 +99,7 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 			if e := credsOrg.Delegate(rootSk, orgPk, attributes, prg, sysParams.ys); e != nil {
 				panic(e)
 			}
+			recordCryptoEvent(credDelegation)
 			recordBandwidth("root", fmt.Sprintf("org-%d", org), Credentials{credsOrg})
 
 			if e := credsOrg.Verify(orgSk, sysParams.rootPk, sysParams.ys); e != nil {
@@ -170,13 +171,13 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 				attributes := []interface{}{
 					dac.ProduceAttributes(userLevel, userName)[0],
 					dac.ProduceAttributes(userLevel, "has-right-to-post")[0],
-					dac.ProduceAttributes(userLevel, "something-else")[0],
 				}
 
 				credsUser := dac.CredentialsFromBytes(organization.credentials.ToBytes())
 				if e := credsUser.Delegate(organization.sk, userPk, attributes, prg, sysParams.ys); e != nil {
 					panic(e)
 				}
+				recordCryptoEvent(credDelegation)
 				recordBandwidth(orgName, userName, Credentials{credsUser})
 
 				if e := credsUser.Verify(userSk, sysParams.rootPk, sysParams.ys); e != nil {

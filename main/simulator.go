@@ -31,15 +31,19 @@ func simulate(rootSk dac.SK) (e error) {
 			defer wgUser.Done()
 
 			// first sleep uniform
-			time.Sleep(time.Duration(rand.Intn(sysParams.frequency*1000)) * time.Millisecond)
+			if sysParams.frequency > 0 {
+				time.Sleep(time.Duration(rand.Intn(sysParams.frequency*1000)) * time.Millisecond)
+			}
 
 			for i := 0; i < sysParams.transactions; i++ {
 				userObj := sysParams.network.users[user]
 
 				// subsequent sleeps Poisson
-				sleep := time.Duration((3600.0/userObj.poisson.Rand())*1000) * time.Millisecond
-				logger.Debugf("user-%d will wait %d ms", user, sleep.Milliseconds())
-				time.Sleep(sleep)
+				if sysParams.frequency > 0 {
+					sleep := time.Duration((3600.0/userObj.poisson.Rand())*1000) * time.Millisecond
+					logger.Debugf("user-%d will wait %d ms", user, sleep.Milliseconds())
+					time.Sleep(sleep)
+				}
 
 				message := randomString(newRand(), 16)
 				userObj.submitTransaction(message)
@@ -57,6 +61,7 @@ func simulate(rootSk dac.SK) (e error) {
 
 		for _, transaction := range sysParams.network.transactions {
 			authorPk := transaction.auditEnc.AuditingDecrypt(sysParams.network.auditor.sk)
+			recordCryptoEvent(auditDecrypt)
 			if !dac.PkEqual(authorPk, sysParams.network.users[transaction.proposal.authorID].CredentialsHolder.pk) {
 				panic("auditing failed")
 			}
@@ -70,7 +75,61 @@ func simulate(rootSk dac.SK) (e error) {
 
 	logger.Noticef("Simulation completed in %d seconds", int(math.Round(time.Since(start).Seconds())))
 
+	printStats()
+
 	return
+}
+
+func printStats() {
+
+	// crypto events
+	logger.Critical("Crypto events:")
+	for event, times := range sysParams.cryptoEvents {
+		logger.Criticalf("\t%-20s : %3d : (%4.1f per transaction)\n", event, times, float64(times)/float64(len(sysParams.network.transactions)))
+	}
+
+	// transaction timings
+	logger.Criticalf("For %d transactions", len(sysParams.transactionTimings))
+	printTimingBasics := func(
+		start func(TransactionTimingInfo) time.Time,
+		end func(TransactionTimingInfo) time.Time,
+		description string,
+	) {
+		var min, max, total, avg time.Duration
+		min = time.Duration(3600 * time.Second)
+		total = 0
+		max = 0
+
+		for _, info := range sysParams.transactionTimings {
+			elapsed := end(info).Sub(start(info))
+			if elapsed < min {
+				min = elapsed
+			}
+			if elapsed > max {
+				max = elapsed
+			}
+			total += elapsed
+		}
+		avg = time.Duration(total.Nanoseconds() / int64(len(sysParams.transactionTimings)))
+
+		logger.Criticalf("%15s : min %4d ms, max %4d ms, avg %4d ms\n", description, min.Milliseconds(), max.Milliseconds(), avg.Milliseconds())
+	}
+
+	printTimingBasics(
+		func(info TransactionTimingInfo) time.Time { return info.start },
+		func(info TransactionTimingInfo) time.Time { return info.end },
+		"total",
+	)
+	printTimingBasics(
+		func(info TransactionTimingInfo) time.Time { return info.endorsementsStart },
+		func(info TransactionTimingInfo) time.Time { return info.endorsementsEnd },
+		"endorsements",
+	)
+	printTimingBasics(
+		func(info TransactionTimingInfo) time.Time { return info.validationStart },
+		func(info TransactionTimingInfo) time.Time { return info.validationEnd },
+		"validations",
+	)
 }
 
 // KeysHolder ...

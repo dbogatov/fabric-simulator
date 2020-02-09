@@ -101,6 +101,7 @@ func (peer *Peer) validate(tx *Transaction) {
 	if e := tx.signature.VerifyNym(sysParams.h, tx.proposal.pkNym, tx.proposal.getMessage()); e != nil {
 		panic(e)
 	}
+	recordCryptoEvent(verifyNym)
 
 	if len(tx.endorsements) < sysParams.endorsements {
 		panic("too few endorsements")
@@ -112,6 +113,7 @@ func (peer *Peer) validate(tx *Transaction) {
 			panic(e)
 		}
 	}
+	recordCryptoEvent(verifySchnorr)
 
 	peer.validateIdentity(tx.proposal.author, tx.proposal.pkNym, tx.proposal.indices, verification)
 
@@ -119,6 +121,7 @@ func (peer *Peer) validate(tx *Transaction) {
 		if e := tx.auditProof.Verify(tx.auditEnc, tx.proposal.pkNym, sysParams.network.auditor.pk, sysParams.h); e != nil {
 			panic(e)
 		}
+		recordCryptoEvent(auditVerify)
 	}
 
 	if sysParams.revoke {
@@ -126,6 +129,7 @@ func (peer *Peer) validate(tx *Transaction) {
 		if e := tx.nonRevocationProof.Verify(tx.proposal.pkNym, FP256BN.NewBIGint(tx.epoch), sysParams.h, sysParams.network.revocationAuthority.pk, sysParams.ys[1]); e != nil {
 			panic(e)
 		}
+		recordCryptoEvent(nonRevokeVerify)
 	}
 
 	// somewhere here are read/write conflict check and ledger update
@@ -157,6 +161,7 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	if e := tp.signature.VerifyNym(sysParams.h, tp.pkNym, tp.getMessage()); e != nil {
 		panic(e)
 	}
+	recordCryptoEvent(verifyNym)
 	// Verify author
 	// Ideally should verify that tp.indices[0].Attribute is equal to the expected value that permits using the blockchain
 	peer.validateIdentity(tp.author, tp.pkNym, tp.indices, endorsement)
@@ -175,6 +180,7 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 		signature: schnorr.Sign(peer.sk, tp.getMessage()),
 		endorser:  peer.id,
 	}
+	recordCryptoEvent(signSchnorr)
 	recordBandwidth(fmt.Sprintf("peer-%d", peer.id), fmt.Sprintf("user-%d", tp.authorID), endorsement)
 
 	tp.doneChannel <- endorsement
@@ -193,6 +199,7 @@ func (peer *Peer) validateIdentity(proof []byte, pkNym interface{}, indices dac.
 	if e := proofObj.VerifyProof(sysParams.rootPk, sysParams.ys, sysParams.h, pkNym, indices, []byte{}); e != nil {
 		panic(e)
 	}
+	recordCryptoEvent(credVerify)
 
 	peer.cache[op] = append(peer.cache[op], key)
 }

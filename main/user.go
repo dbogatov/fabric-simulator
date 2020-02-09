@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
@@ -22,6 +23,10 @@ func (user *User) submitTransaction(message string) {
 
 	logger.Infof("user-%d starts transaction with a message %s", user.id, message)
 
+	timingInfo := TransactionTimingInfo{
+		start: time.Now(),
+	}
+
 	prg := newRand()
 
 	hash := sha3([]byte(message))
@@ -34,6 +39,7 @@ func (user *User) submitTransaction(message string) {
 	}
 
 	proposal, pkNym, skNym := MakeTransactionProposal(hash, *user)
+	timingInfo.endorsementsStart = time.Now()
 	for _, endorser := range endorsers {
 		sysParams.network.peers[endorser].endorsementChannel <- proposal
 	}
@@ -45,8 +51,11 @@ func (user *User) submitTransaction(message string) {
 		if e := schnorr.Verify(sysParams.network.peers[endorsement.endorser].pk, endorsement.signature, proposal.getMessage()); e != nil {
 			panic(e)
 		}
+		recordCryptoEvent(verifySchnorr)
 		endorsements = append(endorsements, endorsement)
 	}
+
+	timingInfo.endorsementsEnd = time.Now()
 
 	logger.Debugf("%s has got all endorsements", user.name())
 
@@ -65,27 +74,36 @@ func (user *User) submitTransaction(message string) {
 		epoch:        user.epoch,
 		doneChannel:  make(chan bool, sysParams.peers), // need to receive OK from all peers (50%+1, technically)
 	}
+	recordCryptoEvent(signNym)
 
 	if sysParams.revoke {
-		tx.nonRevocationProof = dac.RevocationProve(prg, *user.nonRevocationHandler, user.sk, skNym, FP256BN.NewBIGint(user.epoch), sysParams.h, sysParams.ys[0]) // TODO check ys
+		tx.nonRevocationProof = dac.RevocationProve(prg, *user.nonRevocationHandler, user.sk, skNym, FP256BN.NewBIGint(user.epoch), sysParams.h, sysParams.ys[0])
+		recordCryptoEvent(nonRevokeProve)
 	}
 
 	if sysParams.audit {
 
 		// fresh auditing encryption and proof every transaction
 		auditEnc, auditR := dac.AuditingEncrypt(newRand(), sysParams.network.auditor.pk, user.pk)
+		recordCryptoEvent(auditEncrypt)
 
 		tx.auditEnc = auditEnc
 		tx.auditProof = dac.AuditingProve(prg, auditEnc, user.pk, user.sk, pkNym, skNym, sysParams.network.auditor.pk, auditR, sysParams.h)
+		recordCryptoEvent(auditProve)
 	}
 
 	orderer := peerByHash(sha3([]byte(fmt.Sprintf("%s-order", message))), sysParams.peers)
+	timingInfo.validationStart = time.Now()
 	sysParams.network.peers[orderer].orderingChannel <- tx
 
 	// wait for all peers to commit the transaction
 	for peer := 0; peer < sysParams.peers; peer++ {
 		<-tx.doneChannel
 	}
+
+	timingInfo.validationEnd = time.Now()
+	timingInfo.end = time.Now()
+	recordTransactionTimingInfo(timingInfo)
 
 	sysParams.network.recordTransaction(tx)
 
