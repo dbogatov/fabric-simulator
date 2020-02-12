@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
@@ -99,7 +100,8 @@ func printStats() {
 		description string,
 	) {
 		var min, max, total, avg time.Duration
-		min = time.Duration(3600 * time.Second)
+		var totals = make([]time.Duration, 0, len(sysParams.transactionTimings))
+		min = time.Duration(3600000 * time.Second)
 		total = 0
 		max = 0
 
@@ -112,10 +114,15 @@ func printStats() {
 				max = elapsed
 			}
 			total += elapsed
+			totals = append(totals, elapsed)
 		}
 		avg = time.Duration(total.Nanoseconds() / int64(len(sysParams.transactionTimings)))
 
-		logger.Criticalf("%15s : min %4d ms, max %4d ms, avg %4d ms\n", description, min.Milliseconds(), max.Milliseconds(), avg.Milliseconds())
+		sort.Slice(totals, func(i, j int) bool {
+			return totals[i] < totals[j]
+		})
+
+		logger.Criticalf("%15s : min %4d ms, max %4d ms, avg %4d ms, median: %d ms\n", description, min.Milliseconds(), max.Milliseconds(), avg.Milliseconds(), totals[len(totals)/2].Milliseconds())
 	}
 
 	printTimingBasics(
