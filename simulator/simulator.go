@@ -79,7 +79,9 @@ func Simulate(rootSk dac.SK, params *SystemParameters) (e error) {
 
 	logger.Noticef("Simulation completed in %d seconds", int(math.Round(time.Since(start).Seconds())))
 
-	printStats()
+	if len(sysParams.transactionTimings) > 0 {
+		printStats()
+	}
 
 	return
 }
