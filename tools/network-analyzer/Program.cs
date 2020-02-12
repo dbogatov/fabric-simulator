@@ -22,6 +22,9 @@ namespace NetworkAnalyzer
 		[Option("--input <string>", Description = "JSON file with network log.")]
 		public string InputFile { get; set; } = null;
 
+		[Option("--slice <int>", Description = "Interval size in ms. Default 50.")]
+		public int Slice { get; set; } = 50;
+
 		[Required]
 		[DirectoryExists]
 		[Option("--output <string>", Description = "Directory to write output files to.")]
@@ -29,7 +32,7 @@ namespace NetworkAnalyzer
 
 		private async Task<int> OnExecute(CommandLineApplication app)
 		{
-			await Analyzer.AnalyzeAsync(InputFile, OutputDirectory);
+			await Analyzer.AnalyzeAsync(InputFile, OutputDirectory, Slice);
 
 			return 0;
 		}
@@ -71,7 +74,7 @@ namespace NetworkAnalyzer
 			public List<double> LatencyReal { get; set; }
 		}
 
-		public static async Task AnalyzeAsync(string filePath, string dirPath)
+		public static async Task AnalyzeAsync(string filePath, string dirPath, int slice)
 		{
 			var log = JsonConvert.DeserializeObject<IEnumerable<NetworkEvent>>(
 				await File.ReadAllTextAsync(filePath)
@@ -79,10 +82,10 @@ namespace NetworkAnalyzer
 
 			Console.WriteLine($"Log size: {log.Count()}");
 
-			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsageStackedBarChart(log)));
+			await File.WriteAllTextAsync(Path.Combine(dirPath, "usage.json"), JsonConvert.SerializeObject(NetworkUsageStackedBarChart(log, slice)));
 		}
 
-		private static ChartData NetworkUsageStackedBarChart(IEnumerable<NetworkEvent> log)
+		private static ChartData NetworkUsageStackedBarChart(IEnumerable<NetworkEvent> log, int slice)
 		{
 			var result = new ChartData()
 			{
@@ -117,8 +120,7 @@ namespace NetworkAnalyzer
 
 			var timestamps = intervals.Select(i => i.When);
 
-			var intervalSize = TimeSpan.FromMilliseconds(50);
-			// (timestamps.Max() - timestamps.Min()) / 1000;
+			var intervalSize = TimeSpan.FromMilliseconds(slice);
 
 			Console.WriteLine($"Intervals number: {(timestamps.Max() - timestamps.Min()) / intervalSize}");
 

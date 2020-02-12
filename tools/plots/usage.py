@@ -2,12 +2,15 @@
 
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import export_svgs
-from bokeh.models import WheelZoomTool, HoverTool, Range1d, LinearAxis, FuncTickFormatter
+from bokeh.models import WheelZoomTool, HoverTool, Range1d, LinearAxis, FuncTickFormatter, Legend
 from bokeh.palettes import Spectral6
 
 from datetime import datetime as dt
 import json
 import math
+
+fontSizeTicks = "14pt"
+fontSizeLabels = "12pt"
 
 with open("../usage.json") as f:
 	data = json.load(f)
@@ -40,7 +43,7 @@ def latencyMap(latency):
 	return list(map(lambda l: (math.log(l, 2) if l > 0 else 0), latency))
 
 
-plot.line(
+real = plot.line(
 	data["Intervals"],
 	latencyMap(data["LatencyReal"]),
 	line_width=2,
@@ -48,7 +51,7 @@ plot.line(
 	y_range_name="latency"
 )
 
-plot.line(
+ideal = plot.line(
 	data["Intervals"],
 	latencyMap(data["LatencyIdeal"]),
 	line_width=2,
@@ -56,9 +59,11 @@ plot.line(
 	y_range_name="latency"
 )
 
-plot.xaxis.visible = False
-
 plot.add_layout(LinearAxis(y_range_name="latency"), 'right')
+plot.add_layout(Legend(items=[
+	("Real latency (ms) " , [real]),
+	("Ideal latency (ms) " , [ideal]),
+]))
 
 plot.yaxis[1].formatter = FuncTickFormatter(code='''
 return tick < 0 ? "" : 2 + tick.toString(10).split('').map(function (d) { return d === '-' ? '⁻' : (d === '.' ? '\u22c5' : '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]); }).join('');
@@ -67,7 +72,21 @@ plot.add_tools(WheelZoomTool(dimensions="width"))
 plot.add_tools(HoverTool(tooltips="$name: @$name"))
 
 plot.legend.orientation = "horizontal"
-plot.legend.location = "top_left"
+
+plot.legend[0].location = "top_left"
+plot.legend[1].location = "top_right"
+plot.legend.label_text_font_size = fontSizeLabels
+plot.xaxis.axis_label_text_font_size = fontSizeLabels
+
+plot.xaxis.major_tick_line_color = None
+plot.xaxis.minor_tick_line_color = None
+plot.xaxis.major_label_text_font_size = '0pt'
+plot.xaxis.axis_label = "Intervals (20 milliseconds each)"
+
+plot.yaxis.major_label_text_font_size = fontSizeTicks
+plot.yaxis.axis_label_text_font_size = fontSizeLabels
+plot.yaxis[0].axis_label = "Number of objects in the network per interval"
+plot.yaxis[1].axis_label = "Latency of the slowest object in milliseconds per interval"
 
 plot.xgrid.grid_line_color = None
 
