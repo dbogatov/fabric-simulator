@@ -2,7 +2,7 @@
 
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import export_svgs
-from bokeh.models import WheelZoomTool, HoverTool, Range1d, LinearAxis, FuncTickFormatter, Legend
+from bokeh.models import WheelZoomTool, HoverTool, Range1d, LinearAxis, FuncTickFormatter, Legend, Label
 from bokeh.palettes import Spectral6
 
 from datetime import datetime as dt
@@ -11,6 +11,8 @@ import math
 
 fontSizeTicks = "14pt"
 fontSizeLabels = "12pt"
+width=1800
+height=500
 
 with open("../usage.json") as f:
 	data = json.load(f)
@@ -24,8 +26,8 @@ for category in categories:
 
 plot = figure(
 	x_range=data["Intervals"],
-	plot_width=1800,
-	plot_height=500,
+	plot_width=width,
+	plot_height=height,
 	extra_y_ranges={"latency": Range1d(start=-20, end=18, min_interval=1.0)}
 )
 
@@ -61,8 +63,8 @@ ideal = plot.line(
 
 plot.add_layout(LinearAxis(y_range_name="latency"), 'right')
 plot.add_layout(Legend(items=[
-	("Real latency (ms) " , [real]),
-	("Ideal latency (ms) " , [ideal]),
+	("Real latency (ms) ", [real]),
+	("Ideal latency (ms) ", [ideal]),
 ]))
 
 plot.yaxis[1].formatter = FuncTickFormatter(code='''
@@ -78,10 +80,17 @@ plot.legend[1].location = "top_right"
 plot.legend.label_text_font_size = fontSizeLabels
 plot.xaxis.axis_label_text_font_size = fontSizeLabels
 
-plot.xaxis.major_tick_line_color = None
-plot.xaxis.minor_tick_line_color = None
-plot.xaxis.major_label_text_font_size = '0pt'
-plot.xaxis.axis_label = "Intervals (20 milliseconds each)"
+plot.xaxis.visible = False
+plot.add_layout(
+	Label(
+		x=(width / 2 - 180),
+		y=0,
+		x_units='screen',
+		y_units='screen',
+		text_font_style="italic",
+		text='Intervals (20 milliseconds each)'
+	)
+)
 
 plot.yaxis.major_label_text_font_size = fontSizeTicks
 plot.yaxis.axis_label_text_font_size = fontSizeLabels
