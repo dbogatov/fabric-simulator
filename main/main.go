@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/dbogatov/dac-lib/dac"
+	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-simulator/distributed"
 	"github.com/dbogatov/fabric-simulator/helpers"
 	"github.com/dbogatov/fabric-simulator/revocation"
@@ -66,11 +68,34 @@ func main() {
 		},
 	}
 
+	setSystemParameters := func(c *cli.Context, prg *amcl.RAND) (sysParams *helpers.SystemParameters, rootSk dac.SK) {
+		return helpers.MakeSystemParameters(
+			logger,
+			prg,
+			c.Int("orgs"),
+			c.Int("users"),
+			c.Int("peers"),
+			c.Int("endorsements"),
+			c.Int("epoch"),
+			c.Int("bandwidth-global"),
+			c.Int("bandwidth-local"),
+			c.Int("conc-endorsements"),
+			c.Int("conc-validations"),
+			c.Int("conc-revocations"),
+			c.Int("transactions"),
+			c.Int("frequency"),
+			c.Bool("revoke"),
+			c.Bool("audit"),
+			c.String("root-address"),
+			c.Int("rpc-port"),
+		)
+	}
+
 	app := &cli.App{
 		EnableBashCompletion: true,
 		Version:              "v0.0.1",
 		Authors: []*cli.Author{
-			&cli.Author{
+			{
 				Name:  "Dmytro Bogatov",
 				Email: "dmytro@dbogatov.org",
 			},
@@ -81,6 +106,11 @@ func main() {
 				Name:  "verbose",
 				Value: "NOTICE",
 				Usage: "verbosity level: CRIT, ERROR, WARN, NOTICE, INFO, DEBUG",
+			},
+			&cli.IntFlag{
+				Name:  "seed",
+				Value: 0x13,
+				Usage: "seed to use for root PK",
 			},
 		},
 		Name:        "fabric",
@@ -188,23 +218,7 @@ func main() {
 					log.SetOutput(f)
 					log.Println("[")
 
-					sys, rootSk := helpers.MakeSystemParameters(
-						logger,
-						c.Int("orgs"),
-						c.Int("users"),
-						c.Int("peers"),
-						c.Int("endorsements"),
-						c.Int("epoch"),
-						c.Int("bandwidth-global"),
-						c.Int("bandwidth-local"),
-						c.Int("conc-endorsements"),
-						c.Int("conc-validations"),
-						c.Int("conc-revocations"),
-						c.Int("transactions"),
-						c.Int("frequency"),
-						c.Bool("revoke"),
-						c.Bool("audit"),
-					)
+					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 
 					return simulator.Simulate(rootSk, sys)
 				},
@@ -213,9 +227,24 @@ func main() {
 				Flags: append(
 					commonFlags,
 					&cli.BoolFlag{
-						Name:  "todo",
+						Name:  "root",
 						Value: false,
-						Usage: "whether to do auditing of all transactions at the end",
+						Usage: "whether this instance shall run as RPC root",
+					},
+					&cli.IntFlag{
+						Name:  "organization",
+						Value: 0,
+						Usage: "if >0, this instance shall run as RPC organization with given ID",
+					},
+					&cli.IntFlag{
+						Name:  "rpc-port",
+						Value: 8888,
+						Usage: "RPC port to listen to",
+					},
+					&cli.StringFlag{
+						Name:  "root-address",
+						Value: "localhost:8888",
+						Usage: "the address (host:port) of the root credential authority RPC server",
 					}),
 				Name:  "distributed",
 				Usage: "runs Fabric Idemix simulation in a fully distributed setting",
@@ -223,25 +252,9 @@ func main() {
 
 					distributed.SetLogger(logger)
 
-					sys, rootSk := helpers.MakeSystemParameters(
-						logger,
-						c.Int("orgs"),
-						c.Int("users"),
-						c.Int("peers"),
-						c.Int("endorsements"),
-						c.Int("epoch"),
-						c.Int("bandwidth-global"),
-						c.Int("bandwidth-local"),
-						c.Int("conc-endorsements"),
-						c.Int("conc-validations"),
-						c.Int("conc-revocations"),
-						c.Int("transactions"),
-						c.Int("frequency"),
-						c.Bool("revoke"),
-						c.Bool("audit"),
-					)
+					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 
-					return distributed.Simulate(rootSk, sys)
+					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"))
 				},
 			},
 		},
