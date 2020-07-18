@@ -89,6 +89,7 @@ func main() {
 			c.Int("rpc-port"),
 			c.String("root-address"),
 			c.String("org-address"),
+			c.String("revocation-address"),
 		)
 	}
 
@@ -232,6 +233,11 @@ func main() {
 						Value: false,
 						Usage: "whether this instance shall run as RPC root",
 					},
+					&cli.BoolFlag{
+						Name:  "revocation",
+						Value: false,
+						Usage: "whether this instance shall run as RPC revocation authority",
+					},
 					&cli.IntFlag{
 						Name:  "organization",
 						Value: 0,
@@ -257,6 +263,11 @@ func main() {
 						Value: "localhost:8889",
 						Usage: "the address (host:port) of the user's organization RPC server",
 					},
+					&cli.StringFlag{
+						Name:  "revocation-address",
+						Value: "localhost:8890",
+						Usage: "the address (host:port) of the revocation authority's RPC server",
+					},
 				),
 				Name:  "distributed",
 				Usage: "runs Fabric Idemix simulation in a fully distributed setting",
@@ -266,7 +277,7 @@ func main() {
 
 					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 
-					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"), c.Int("user"))
+					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"), c.Int("user"), c.Bool("revocation"))
 				},
 			},
 		},

@@ -26,3 +26,13 @@ type CredRequest struct {
 type Credentials struct {
 	Creds []byte
 }
+
+// NonRevocationRequest ...
+type NonRevocationRequest struct {
+	PK []byte
+}
+
+// NonRevocationHandle ...
+type NonRevocationHandle struct {
+	Handle []byte
+}

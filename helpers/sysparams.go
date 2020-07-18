@@ -35,10 +35,11 @@ type SystemParameters struct {
 	RPCPort                int
 	RootRPCAddress         string
 	OrgRPCAddress          string
+	RevocationRPCAddress   string
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(logger *logging.Logger, prg *amcl.RAND, orgs, users, peers, endorsements, epoch, bandwidthGlobal, bandwidthLocal, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions, frequency int, revoke, audit bool, rpcPort int, rootRPCAddress, orgRPCAddress string) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(logger *logging.Logger, prg *amcl.RAND, orgs, users, peers, endorsements, epoch, bandwidthGlobal, bandwidthLocal, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions, frequency int, revoke, audit bool, rpcPort int, rootRPCAddress, orgRPCAddress, revocationRPCAddress string) (sysParams *SystemParameters, rootSk dac.SK) {
 
 	sysParams = &SystemParameters{
 		Orgs:                   orgs,
@@ -59,6 +60,7 @@ func MakeSystemParameters(logger *logging.Logger, prg *amcl.RAND, orgs, users, p
 		RPCPort:                rpcPort,
 		RootRPCAddress:         rootRPCAddress,
 		OrgRPCAddress:          orgRPCAddress,
+		RevocationRPCAddress:   revocationRPCAddress,
 	}
 
 	logger.Noticef("%+v\n", sysParams)

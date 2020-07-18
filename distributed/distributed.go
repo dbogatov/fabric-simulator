@@ -22,7 +22,7 @@ func SetLogger(l *logging.Logger) {
 var sysParams helpers.SystemParameters
 
 // Simulate ...
-func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization, user int) (e error) {
+func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization, user int, revocation bool) (e error) {
 
 	sysParams = *params
 
@@ -44,6 +44,12 @@ func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organi
 		logger.Infof("Running as USER %d", organization)
 
 		MakeUser(prg, user)
+	} else if revocation {
+		logger.Info("Running as REVOCATION")
+
+		rpcRevocation := MakeRPCRevocation(prg)
+
+		runRPCServer(rpcRevocation)
 	}
 
 	return
