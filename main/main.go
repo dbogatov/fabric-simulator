@@ -86,8 +86,9 @@ func main() {
 			c.Int("frequency"),
 			c.Bool("revoke"),
 			c.Bool("audit"),
-			c.String("root-address"),
 			c.Int("rpc-port"),
+			c.String("root-address"),
+			c.String("org-address"),
 		)
 	}
 
@@ -237,6 +238,11 @@ func main() {
 						Usage: "if >0, this instance shall run as RPC organization with given ID",
 					},
 					&cli.IntFlag{
+						Name:  "user",
+						Value: 0,
+						Usage: "if >0, this instance shall run as RPC user with given ID",
+					},
+					&cli.IntFlag{
 						Name:  "rpc-port",
 						Value: 8888,
 						Usage: "RPC port to listen to",
@@ -245,7 +251,13 @@ func main() {
 						Name:  "root-address",
 						Value: "localhost:8888",
 						Usage: "the address (host:port) of the root credential authority RPC server",
-					}),
+					},
+					&cli.StringFlag{
+						Name:  "org-address",
+						Value: "localhost:8889",
+						Usage: "the address (host:port) of the user's organization RPC server",
+					},
+				),
 				Name:  "distributed",
 				Usage: "runs Fabric Idemix simulation in a fully distributed setting",
 				Action: func(c *cli.Context) error {
@@ -254,7 +266,7 @@ func main() {
 
 					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 
-					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"))
+					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"), c.Int("user"))
 				},
 			},
 		},

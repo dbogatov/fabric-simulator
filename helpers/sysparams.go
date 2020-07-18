@@ -32,12 +32,13 @@ type SystemParameters struct {
 	BandwidthLocal         int // B/s
 	Revoke                 bool
 	Audit                  bool
-	RootRPCAddress         string
 	RPCPort                int
+	RootRPCAddress         string
+	OrgRPCAddress          string
 }
 
 // MakeSystemParameters ...
-func MakeSystemParameters(logger *logging.Logger, prg *amcl.RAND, orgs, users, peers, endorsements, epoch, bandwidthGlobal, bandwidthLocal, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions, frequency int, revoke, audit bool, rootRPCAddress string, rpcPort int) (sysParams *SystemParameters, rootSk dac.SK) {
+func MakeSystemParameters(logger *logging.Logger, prg *amcl.RAND, orgs, users, peers, endorsements, epoch, bandwidthGlobal, bandwidthLocal, concurrentEndorsements, concurrentValidations, concurrentRevocations, transactions, frequency int, revoke, audit bool, rpcPort int, rootRPCAddress, orgRPCAddress string) (sysParams *SystemParameters, rootSk dac.SK) {
 
 	sysParams = &SystemParameters{
 		Orgs:                   orgs,
@@ -55,8 +56,9 @@ func MakeSystemParameters(logger *logging.Logger, prg *amcl.RAND, orgs, users, p
 		Revoke:                 revoke,
 		Audit:                  audit,
 		H:                      FP256BN.ECP2_generator().Mul(FP256BN.Randomnum(FP256BN.NewBIGints(FP256BN.CURVE_Order), prg)),
-		RootRPCAddress:         rootRPCAddress,
 		RPCPort:                rpcPort,
+		RootRPCAddress:         rootRPCAddress,
+		OrgRPCAddress:          orgRPCAddress,
 	}
 
 	logger.Noticef("%+v\n", sysParams)

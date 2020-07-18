@@ -22,7 +22,7 @@ func SetLogger(l *logging.Logger) {
 var sysParams helpers.SystemParameters
 
 // Simulate ...
-func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization int) (e error) {
+func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization, user int) (e error) {
 
 	sysParams = *params
 
@@ -40,6 +40,10 @@ func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organi
 		rpcOrg := MakeRPCOrganization(prg, organization)
 
 		runRPCServer(rpcOrg)
+	} else if user > 0 {
+		logger.Infof("Running as USER %d", organization)
+
+		MakeUser(prg, user)
 	}
 
 	return

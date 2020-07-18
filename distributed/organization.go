@@ -7,6 +7,7 @@ import (
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
+	"github.com/dbogatov/fabric-simulator/helpers"
 )
 
 // RPCOrganization ...
@@ -58,6 +59,44 @@ func MakeRPCOrganization(prg *amcl.RAND, id int) (rpcOrg *RPCOrganization) {
 	}
 
 	logger.Info("Received credentials")
+
+	return
+}
+
+// GetNonce ...
+func (rpcOrg *RPCOrganization) GetNonce(args *int, reply *[]byte) (e error) {
+	prg := helpers.NewRand()
+
+	*reply = helpers.RandomBytes(prg, helpers.NonceSize)
+
+	logger.Debug("Nonce requested")
+
+	return
+}
+
+// ProcessCredRequest ...
+func (rpcOrg *RPCOrganization) ProcessCredRequest(args *CredRequest, reply *Credentials) (e error) {
+
+	credRequest := dac.CredRequestFromBytes(args.Request)
+	prg := helpers.NewRand()
+
+	if e := credRequest.Validate(); e != nil {
+		logger.Fatal("credRequest.Validate():", e)
+	}
+
+	attributes := []interface{}{
+		dac.ProduceAttributes(userLevel, fmt.Sprintf("user-%d", args.ID))[0],
+		dac.ProduceAttributes(userLevel, "has-right-to-post")[0],
+	}
+
+	credsUser := dac.CredentialsFromBytes(rpcOrg.credentials.ToBytes())
+	if e := credsUser.Delegate(rpcOrg.sk, credRequest.Pk, attributes, prg, sysParams.Ys); e != nil {
+		logger.Fatal("credsOrg.Delegate():", e)
+	}
+
+	*&reply.Creds = credsUser.ToBytes()
+
+	logger.Debug("Credentials granted")
 
 	return
 }
