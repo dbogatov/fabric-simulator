@@ -90,6 +90,7 @@ func main() {
 			c.String("root-address"),
 			c.String("org-address"),
 			c.String("revocation-address"),
+			c.StringSlice("peer-addresses"),
 		)
 	}
 
@@ -244,29 +245,39 @@ func main() {
 						Usage: "if >0, this instance shall run as RPC organization with given ID",
 					},
 					&cli.IntFlag{
+						Name:  "peer",
+						Value: 0,
+						Usage: "if >0, this instance shall run as RPC peer with given ID",
+					},
+					&cli.IntFlag{
 						Name:  "user",
 						Value: 0,
 						Usage: "if >0, this instance shall run as RPC user with given ID",
 					},
 					&cli.IntFlag{
 						Name:  "rpc-port",
-						Value: 8888,
+						Value: 8000,
 						Usage: "RPC port to listen to",
 					},
 					&cli.StringFlag{
 						Name:  "root-address",
-						Value: "localhost:8888",
+						Value: "localhost:8100",
 						Usage: "the address (host:port) of the root credential authority RPC server",
 					},
 					&cli.StringFlag{
 						Name:  "org-address",
-						Value: "localhost:8889",
+						Value: "localhost:8200",
 						Usage: "the address (host:port) of the user's organization RPC server",
 					},
 					&cli.StringFlag{
 						Name:  "revocation-address",
-						Value: "localhost:8890",
+						Value: "localhost:8300",
 						Usage: "the address (host:port) of the revocation authority's RPC server",
+					},
+					&cli.StringSliceFlag{
+						Name:  "peer-addresses",
+						Value: cli.NewStringSlice("localhost:8400"),
+						Usage: "the addresses (host:port) of the peers RPC servers",
 					},
 				),
 				Name:  "distributed",
@@ -276,8 +287,9 @@ func main() {
 					distributed.SetLogger(logger)
 
 					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
+					sys.Peers = len(c.StringSlice("peer-addresses"))
 
-					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"), c.Int("user"), c.Bool("revocation"))
+					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"), c.Int("peer"), c.Int("user"), c.Bool("revocation"))
 				},
 			},
 		},

@@ -36,3 +36,14 @@ type NonRevocationRequest struct {
 type NonRevocationHandle struct {
 	Handle []byte
 }
+
+// TransactionProposal ...
+type TransactionProposal struct {
+	Hash       []byte
+	AuthorID   int // for checking auditing correctness
+	Chaincode  string
+	Signature  []byte // dac.NymSignature
+	Author     []byte // marshalled dac.Proof
+	PkNym      []byte
+	IndexValue []byte
+}

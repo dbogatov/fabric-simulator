@@ -10,6 +10,8 @@ github.com/dbogatov/dac-lib v0.0.0-20200209033524-ef5e230b5d87 h1:YlBCksuDPjXyiy
 github.com/dbogatov/dac-lib v0.0.0-20200209033524-ef5e230b5d87/go.mod h1:fssI4BUD3Nbnm3k9dBrft9C0nOCVYbxxc8BiPl5G/VE=
 github.com/dbogatov/dac-lib v0.0.0-20200209040313-bd50c4d7c428 h1:QVpZYL263LABQ+7mpncQrJGVf5EAYKEz92cHlvp8qmI=
 github.com/dbogatov/dac-lib v0.0.0-20200209040313-bd50c4d7c428/go.mod h1:fssI4BUD3Nbnm3k9dBrft9C0nOCVYbxxc8BiPl5G/VE=
+github.com/dbogatov/dac-lib v0.0.0-20200718071538-18e94fbd7cb0 h1:TVa8HjDu5rV2qz6Jm/RKI8950tLnXzXMzRrEKrt9mPU=
+github.com/dbogatov/dac-lib v0.0.0-20200718071538-18e94fbd7cb0/go.mod h1:sBKC7NYQcLZT1MjX7Cf8KBEeLPS+2oII8Ep6m6ZXiBE=
 github.com/dbogatov/fabric-amcl v0.0.0-20190731091901-c69f438d7884 h1:EVLi2Rt4muXqg8qtHEUsbqSSQ2/0YKwVkfnumKbNvFY=
 github.com/dbogatov/fabric-amcl v0.0.0-20190731091901-c69f438d7884/go.mod h1:jFQkONklP4QnpE8sAGHkWpydvJdRTgi9oWQEUy8lfTo=
 github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=

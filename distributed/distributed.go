@@ -22,7 +22,7 @@ func SetLogger(l *logging.Logger) {
 var sysParams helpers.SystemParameters
 
 // Simulate ...
-func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization, user int, revocation bool) (e error) {
+func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization, peer, user int, revocation bool) (e error) {
 
 	sysParams = *params
 
@@ -40,6 +40,12 @@ func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organi
 		rpcOrg := MakeRPCOrganization(prg, organization)
 
 		runRPCServer(rpcOrg)
+	} else if peer > 0 {
+		logger.Infof("Running as PEER %d", peer)
+
+		rpcPeer := MakeRPCPeer(prg, peer)
+
+		runRPCServer(rpcPeer)
 	} else if user > 0 {
 		logger.Infof("Running as USER %d", organization)
 
