@@ -37,10 +37,10 @@ func recordCryptoEvent(event CryptoEvent) {
 	recordCryptoEventLock.Lock()
 	defer recordCryptoEventLock.Unlock()
 
-	if current, exists := sysParams.cryptoEvents[event]; exists {
-		sysParams.cryptoEvents[event] = current + 1
+	if current, exists := execParams.cryptoEvents[event]; exists {
+		execParams.cryptoEvents[event] = current + 1
 	} else {
-		sysParams.cryptoEvents[event] = 1
+		execParams.cryptoEvents[event] = 1
 	}
 }
 
@@ -63,5 +63,5 @@ func recordTransactionTimingInfo(info TransactionTimingInfo) {
 	recordTransactionTimingInfoLock.Lock()
 	defer recordTransactionTimingInfoLock.Unlock()
 
-	sysParams.transactionTimings = append(sysParams.transactionTimings, info)
+	execParams.transactionTimings = append(execParams.transactionTimings, info)
 }

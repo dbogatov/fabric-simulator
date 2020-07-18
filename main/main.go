@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/dbogatov/fabric-simulator/distributed"
+	"github.com/dbogatov/fabric-simulator/helpers"
 	"github.com/dbogatov/fabric-simulator/revocation"
 	"github.com/dbogatov/fabric-simulator/simulator"
 	"github.com/op/go-logging"
@@ -15,6 +17,54 @@ import (
 var logger = logging.MustGetLogger("main")
 
 func main() {
+
+	commonFlags := []cli.Flag{
+		&cli.IntFlag{
+			Name:  "orgs",
+			Value: 10,
+			Usage: "number of organizations (all Idemix)",
+		},
+		&cli.IntFlag{
+			Name:  "users",
+			Value: 10,
+			Usage: "number of users per organization",
+		},
+		&cli.IntFlag{
+			Name:  "peers",
+			Value: 5,
+			Usage: "number of peers",
+		},
+		&cli.IntFlag{
+			Name:  "endorsements",
+			Value: 2,
+			Usage: "endorsement policy: number of endorsing peers per transaction",
+		},
+		&cli.IntFlag{
+			Name:  "epoch",
+			Value: 60,
+			Usage: "length of an epoch in seconds",
+		},
+		&cli.IntFlag{
+			Name:  "transactions",
+			Value: 25,
+			Usage: "total number of transactions per user",
+		},
+		&cli.IntFlag{
+			Name:  "frequency",
+			Value: 20,
+			Usage: "max wait time in seconds for a user between transactions",
+		},
+		&cli.BoolFlag{
+			Name:  "revoke",
+			Value: false,
+			Usage: "whether to do occasional revocations",
+		},
+		&cli.BoolFlag{
+			Name:  "audit",
+			Value: false,
+			Usage: "whether to do auditing of all transactions at the end",
+		},
+	}
 
 	app := &cli.App{
 		EnableBashCompletion: true,
@@ -91,32 +141,8 @@ func main() {
 				},
 			},
 			{
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "orgs",
-						Value: 10,
-						Usage: "number of organizations (all Idemix)",
-					},
-					&cli.IntFlag{
-						Name:  "users",
-						Value: 10,
-						Usage: "number of users per organization",
-					},
-					&cli.IntFlag{
-						Name:  "peers",
-						Value: 5,
-						Usage: "number of peers",
-					},
-					&cli.IntFlag{
-						Name:  "endorsements",
-						Value: 2,
-						Usage: "endorsement policy: number of endorsing peers per transaction",
-					},
-					&cli.IntFlag{
-						Name:  "epoch",
-						Value: 60,
-						Usage: "length of an epoch in seconds",
-					},
+				Flags: append(
+					commonFlags,
 					&cli.IntFlag{
 						Name:  "bandwidth-global",
 						Value: 1024 * 1024, // 1 MB/s
@@ -126,16 +152,6 @@ func main() {
 						Name:  "bandwidth-local",
 						Value: 1024 * 1024 / 10, // 0.1 MB/s
 						Usage: "local bandwidth in bytes per second",
-					},
-					&cli.IntFlag{
-						Name:  "transactions",
-						Value: 25,
-						Usage: "total number of transactions per user",
-					},
-					&cli.IntFlag{
-						Name:  "frequency",
-						Value: 20,
-						Usage: "max wait time in seconds for a user between transactions",
 					},
 					&cli.IntFlag{
 						Name:  "conc-endorsements",
@@ -151,18 +167,7 @@ func main() {
 						Name:  "conc-revocations",
 						Value: 10,
 						Usage: "number of concurrent revocations the authority can do",
-					},
-					&cli.BoolFlag{
-						Name:  "revoke",
-						Value: false,
-						Usage: "whether to do occasional revocations",
-					},
-					&cli.BoolFlag{
-						Name:  "audit",
-						Value: false,
-						Usage: "whether to do auditing of all transactions at the end",
-					},
-				},
+					}),
 				Name:  "simulator",
 				Usage: "runs Fabric Idemix simulation tracking network statistics and crypto events",
 				Action: func(c *cli.Context) error {
@@ -183,7 +188,8 @@ func main() {
 					log.SetOutput(f)
 					log.Println("[")
 
-					sys, rootSk := simulator.MakeSystemParameters(
+					sys, rootSk := helpers.MakeSystemParameters(
+						logger,
 						c.Int("orgs"),
 						c.Int("users"),
 						c.Int("peers"),
@@ -201,6 +207,41 @@ func main() {
 					)
 
 					return simulator.Simulate(rootSk, sys)
+				},
+			},
+			{
+				Flags: append(
+					commonFlags,
+					&cli.BoolFlag{
+						Name:  "todo",
+						Value: false,
+						Usage: "whether to do auditing of all transactions at the end",
+					}),
+				Name:  "distributed",
+				Usage: "runs Fabric Idemix simulation in a fully distributed setting",
+				Action: func(c *cli.Context) error {
+
+					distributed.SetLogger(logger)
+
+					sys, rootSk := helpers.MakeSystemParameters(
+						logger,
+						c.Int("orgs"),
+						c.Int("users"),
+						c.Int("peers"),
+						c.Int("endorsements"),
+						c.Int("epoch"),
+						c.Int("bandwidth-global"),
+						c.Int("bandwidth-local"),
+						c.Int("conc-endorsements"),
+						c.Int("conc-validations"),
+						c.Int("conc-revocations"),
+						c.Int("transactions"),
+						c.Int("frequency"),
+						c.Bool("revoke"),
+						c.Bool("audit"),
+					)
+
+					return distributed.Simulate(rootSk, sys)
 				},
 			},
 		},

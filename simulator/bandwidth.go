@@ -57,8 +57,8 @@ func recordBandwidth(from, to string, object transferable) {
 		time.Sleep(waitTime)
 	}
 
-	waitTimeGlobal := getWaitTime(sysParams.bandwidthGlobal)
-	waitTimeLocal := getWaitTime(sysParams.bandwidthLocal)
+	waitTimeGlobal := getWaitTime(sysParams.BandwidthGlobal)
+	waitTimeLocal := getWaitTime(sysParams.BandwidthLocal)
 	start := time.Now()
 
 	go spinWait(fromLock, waitTimeLocal)
@@ -78,8 +78,8 @@ func recordBandwidth(from, to string, object transferable) {
 		Size:            object.size(),
 		Start:           start.Format(time.RFC3339Nano),
 		End:             end.Format(time.RFC3339Nano),
-		LocalBandwidth:  sysParams.bandwidthLocal,
-		GlobalBandwidth: sysParams.bandwidthGlobal,
+		LocalBandwidth:  sysParams.BandwidthLocal,
+		GlobalBandwidth: sysParams.BandwidthGlobal,
 		ID:              networkEventID,
 	})
 	if err != nil {

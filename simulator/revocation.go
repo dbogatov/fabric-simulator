@@ -7,6 +7,7 @@ import (
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
+	"github.com/dbogatov/fabric-simulator/helpers"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -24,11 +25,11 @@ type RevocationAuthority struct {
 // MakeRevocationAuthority ...
 func MakeRevocationAuthority() (revocation *RevocationAuthority) {
 
-	groth := dac.MakeGroth(newRand(), true, sysParams.ys[1])
+	groth := dac.MakeGroth(helpers.NewRand(), true, sysParams.Ys[1])
 	sk, pk := groth.Generate()
 
 	revocation = &RevocationAuthority{
-		semaphore:      semaphore.NewWeighted(int64(sysParams.concurrentRevocations)),
+		semaphore:      semaphore.NewWeighted(int64(sysParams.ConcurrentRevocations)),
 		ctx:            context.TODO(),
 		requestChannel: make(chan *NonRevocationRequest),
 		exitChannel:    make(chan bool),
@@ -54,10 +55,10 @@ func (revocation *RevocationAuthority) run() {
 
 			go revocation.grant(nrr)
 			continue
-		case <-time.After(time.Duration(sysParams.epoch) * time.Second):
+		case <-time.After(time.Duration(sysParams.Epoch) * time.Second):
 
-			if sysParams.revoke && sysParams.network != nil {
-				sysParams.network.epoch++
+			if sysParams.Revoke && execParams.network != nil {
+				execParams.network.epoch++
 			}
 
 			continue
@@ -72,7 +73,7 @@ func (revocation *RevocationAuthority) grant(nrr *NonRevocationRequest) {
 	defer revocation.semaphore.Release(1)
 
 	nrh := &NonRevocationHandle{
-		handle: dac.SignNonRevoke(newRand(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(sysParams.network.epoch), sysParams.ys[1]),
+		handle: dac.SignNonRevoke(helpers.NewRand(), revocation.sk, nrr.userPk, FP256BN.NewBIGint(execParams.network.epoch), sysParams.Ys[1]),
 	}
 
 	recordCryptoEvent(nonRevokeGrant)

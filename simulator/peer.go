@@ -7,6 +7,7 @@ import (
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
+	"github.com/dbogatov/fabric-simulator/helpers"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -39,13 +40,13 @@ type Peer struct {
 
 // MakePeer ...
 func MakePeer(id int) (peer *Peer) {
-	sk, pk := dac.GenerateKeys(newRand(), 0)
+	sk, pk := dac.GenerateKeys(helpers.NewRand(), 0)
 
 	peer = &Peer{
 		id:                   id,
 		ctx:                  context.TODO(),
-		endorsementSemaphore: semaphore.NewWeighted(int64(sysParams.concurrentEndorsements)),
-		validationSemaphore:  semaphore.NewWeighted(int64(sysParams.concurrentValidations)),
+		endorsementSemaphore: semaphore.NewWeighted(int64(sysParams.ConcurrentEndorsements)),
+		validationSemaphore:  semaphore.NewWeighted(int64(sysParams.ConcurrentValidations)),
 		endorsementChannel:   make(chan *TransactionProposal),
 		orderingChannel:      make(chan *Transaction),
 		validationChannel:    make(chan *Transaction),
@@ -98,18 +99,18 @@ func (peer *Peer) validate(tx *Transaction) {
 
 	defer peer.validationSemaphore.Release(1)
 
-	if e := tx.signature.VerifyNym(sysParams.h, tx.proposal.pkNym, tx.proposal.getMessage()); e != nil {
+	if e := tx.signature.VerifyNym(sysParams.H, tx.proposal.pkNym, tx.proposal.getMessage()); e != nil {
 		panic(e)
 	}
 	recordCryptoEvent(verifyNym)
 
-	if len(tx.endorsements) < sysParams.endorsements {
+	if len(tx.endorsements) < sysParams.Endorsements {
 		panic("too few endorsements")
 	}
 
-	schnorr := dac.MakeSchnorr(newRand(), false)
+	schnorr := dac.MakeSchnorr(helpers.NewRand(), false)
 	for _, endorsement := range tx.endorsements {
-		if e := schnorr.Verify(sysParams.network.peers[endorsement.endorser].pk, endorsement.signature, tx.proposal.getMessage()); e != nil {
+		if e := schnorr.Verify(execParams.network.peers[endorsement.endorser].pk, endorsement.signature, tx.proposal.getMessage()); e != nil {
 			panic(e)
 		}
 	}
@@ -117,16 +118,16 @@ func (peer *Peer) validate(tx *Transaction) {
 
 	peer.validateIdentity(tx.proposal.author, tx.proposal.pkNym, tx.proposal.indices, verification)
 
-	if sysParams.audit {
-		if e := tx.auditProof.Verify(tx.auditEnc, tx.proposal.pkNym, sysParams.network.auditor.pk, sysParams.h); e != nil {
+	if sysParams.Audit {
+		if e := tx.auditProof.Verify(tx.auditEnc, tx.proposal.pkNym, execParams.network.auditor.pk, sysParams.H); e != nil {
 			panic(e)
 		}
 		recordCryptoEvent(auditVerify)
 	}
 
-	if sysParams.revoke {
+	if sysParams.Revoke {
 		// Verify non-revocation
-		if e := tx.nonRevocationProof.Verify(tx.proposal.pkNym, FP256BN.NewBIGint(tx.epoch), sysParams.h, sysParams.network.revocationAuthority.pk, sysParams.ys[1]); e != nil {
+		if e := tx.nonRevocationProof.Verify(tx.proposal.pkNym, FP256BN.NewBIGint(tx.epoch), sysParams.H, execParams.network.revocationAuthority.pk, sysParams.Ys[1]); e != nil {
 			panic(e)
 		}
 		recordCryptoEvent(nonRevokeVerify)
@@ -146,7 +147,7 @@ func (peer *Peer) order(tx *Transaction) {
 
 	tx.orderer = peer.id
 
-	for _, other := range sysParams.network.peers {
+	for _, other := range execParams.network.peers {
 		other.validationChannel <- tx
 	}
 
@@ -158,7 +159,7 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	defer peer.endorsementSemaphore.Release(1)
 
 	// Verify signature
-	if e := tp.signature.VerifyNym(sysParams.h, tp.pkNym, tp.getMessage()); e != nil {
+	if e := tp.signature.VerifyNym(sysParams.H, tp.pkNym, tp.getMessage()); e != nil {
 		panic(e)
 	}
 	recordCryptoEvent(verifyNym)
@@ -173,7 +174,7 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 	executeChaincode()
 
 	// All set!
-	schnorr := dac.MakeSchnorr(newRand(), false)
+	schnorr := dac.MakeSchnorr(helpers.NewRand(), false)
 
 	logger.Debugf("peer-%d endorsed transaction payload %s", peer.id, fmt.Sprintf("user-%d", tp.authorID))
 	endorsement := Endorsement{
@@ -189,14 +190,15 @@ func (peer *Peer) endorse(tp *TransactionProposal) {
 func (peer *Peer) validateIdentity(proof []byte, pkNym interface{}, indices dac.Indices, op operation) {
 
 	var key [32]byte
-	copy(key[:], sha3(proof)[:4])
+	copy(key[:], helpers.Sha3(proof)[:4])
+	recordCryptoEvent(sha3hash)
 	for _, cached := range peer.cache[op] {
 		if cached == key {
 			return
 		}
 	}
 	proofObj := dac.ProofFromBytes(proof)
-	if e := proofObj.VerifyProof(sysParams.rootPk, sysParams.ys, sysParams.h, pkNym, indices, []byte{}); e != nil {
+	if e := proofObj.VerifyProof(sysParams.RootPk, sysParams.Ys, sysParams.H, pkNym, indices, []byte{}); e != nil {
 		panic(e)
 	}
 	recordCryptoEvent(credVerify)
@@ -239,11 +241,11 @@ type Transaction struct {
 
 func (transaction Transaction) size() int {
 	auditingSize := 0
-	if sysParams.audit {
+	if sysParams.Audit {
 		auditingSize = 4*32 + 2*4*32
 	}
 	revocationSize := 0
-	if sysParams.revoke {
+	if sysParams.Revoke {
 		revocationSize = 3*32 + 3*(1+2*32) + 4*32 + 4
 	}
 	return len(transaction.signature.ToBytes()) + transaction.proposal.size() + auditingSize + len(transaction.endorsements)*transaction.endorsements[0].size() + revocationSize

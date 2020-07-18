@@ -1,4 +1,4 @@
-package simulator
+package helpers
 
 import (
 	"encoding/binary"
@@ -8,17 +8,10 @@ import (
 	"time"
 
 	"github.com/dbogatov/fabric-amcl/amcl"
-	"github.com/op/go-logging"
 )
 
-var logger *logging.Logger
-
-// SetLogger ...
-func SetLogger(l *logging.Logger) {
-	logger = l
-}
-
-func randomBytes(prg *amcl.RAND, n int) (bytes []byte) {
+// RandomBytes ...
+func RandomBytes(prg *amcl.RAND, n int) (bytes []byte) {
 
 	bytes = make([]byte, n)
 	for i := 0; i < n; i++ {
@@ -28,7 +21,8 @@ func randomBytes(prg *amcl.RAND, n int) (bytes []byte) {
 	return
 }
 
-func peerByHash(hash []byte, peers int) (peer int) {
+// PeerByHash ...
+func PeerByHash(hash []byte, peers int) (peer int) {
 	input := new(big.Int)
 	input.SetBytes(hash)
 
@@ -43,9 +37,8 @@ func peerByHash(hash []byte, peers int) (peer int) {
 	return
 }
 
-func sha3(raw []byte) (hash []byte) {
-
-	recordCryptoEvent(sha3hash)
+// Sha3 ...
+func Sha3(raw []byte) (hash []byte) {
 
 	hash = make([]byte, 32)
 	sha3 := amcl.NewSHA3(amcl.SHA3_HASH256)
@@ -57,7 +50,8 @@ func sha3(raw []byte) (hash []byte) {
 	return
 }
 
-func randomString(prg *amcl.RAND, length int) string {
+// RandomString ...
+func RandomString(prg *amcl.RAND, length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	b := make([]byte, length)
@@ -68,7 +62,8 @@ func randomString(prg *amcl.RAND, length int) string {
 	return string(b)
 }
 
-func randomULong(prg *amcl.RAND) uint64 {
+// RandomULong ...
+func RandomULong(prg *amcl.RAND) uint64 {
 	var raw [8]byte
 	for i := 0; i < 8; i++ {
 		raw[i] = prg.GetByte()
@@ -78,7 +73,8 @@ func randomULong(prg *amcl.RAND) uint64 {
 
 var randMutex = &sync.Mutex{}
 
-func newRand() (prg *amcl.RAND) {
+// NewRand ...
+func NewRand() (prg *amcl.RAND) {
 
 	randMutex.Lock()
 	defer randMutex.Unlock()
@@ -94,7 +90,8 @@ func newRand() (prg *amcl.RAND) {
 	return
 }
 
-func newRandSeed(seed []byte) (prg *amcl.RAND) {
+// NewRandSeed ...
+func NewRandSeed(seed []byte) (prg *amcl.RAND) {
 
 	prg = amcl.NewRAND()
 	prg.Seed(len(seed), seed)

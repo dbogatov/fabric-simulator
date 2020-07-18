@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"github.com/dbogatov/dac-lib/dac"
+	"github.com/dbogatov/fabric-simulator/helpers"
 )
 
 // TransactionProposal ...
@@ -19,9 +20,9 @@ type TransactionProposal struct {
 // MakeTransactionProposal ...
 func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, pkNym interface{}, skNym dac.SK) {
 
-	prg := newRand()
+	prg := helpers.NewRand()
 
-	skNym, pkNym = dac.GenerateNymKeys(prg, user.sk, sysParams.h)
+	skNym, pkNym = dac.GenerateNymKeys(prg, user.sk, sysParams.H)
 	indices := dac.Indices{
 		dac.Index{
 			I:         1,
@@ -33,11 +34,11 @@ func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, p
 	proof, e := user.credentials.Prove(
 		prg,
 		user.sk,
-		sysParams.rootPk,
+		sysParams.RootPk,
 		indices,
 		[]byte{},
-		sysParams.ys,
-		sysParams.h,
+		sysParams.Ys,
+		sysParams.H,
 		skNym,
 	)
 	recordCryptoEvent(credProve)
@@ -54,10 +55,10 @@ func MakeTransactionProposal(hash []byte, user User) (tp *TransactionProposal, p
 		author:      author,
 		pkNym:       pkNym,
 		indices:     indices,
-		doneChannel: make(chan Endorsement, sysParams.endorsements),
+		doneChannel: make(chan Endorsement, sysParams.Endorsements),
 	}
 
-	tp.signature = dac.SignNym(prg, pkNym, skNym, user.sk, sysParams.h, tp.getMessage())
+	tp.signature = dac.SignNym(prg, pkNym, skNym, user.sk, sysParams.H, tp.getMessage())
 	recordCryptoEvent(signNym)
 
 	return

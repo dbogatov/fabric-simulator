@@ -9,47 +9,60 @@ import (
 	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
+	"github.com/dbogatov/fabric-simulator/helpers"
+	"github.com/op/go-logging"
 )
 
-var sysParams SystemParameters
+var logger *logging.Logger
+
+// SetLogger ...
+func SetLogger(l *logging.Logger) {
+	logger = l
+}
+
+var sysParams helpers.SystemParameters
+var execParams ExecutionParameters = ExecutionParameters{
+	cryptoEvents:       make(map[CryptoEvent]int, 0),
+	transactionTimings: make([]TransactionTimingInfo, 0),
+}
 
 // Simulate ...
-func Simulate(rootSk dac.SK, params *SystemParameters) (e error) {
+func Simulate(rootSk dac.SK, params *helpers.SystemParameters) (e error) {
 
 	sysParams = *params
 
 	start := time.Now()
 
-	sysParams.network = MakeNetwork(newRand(), rootSk)
+	execParams.network = MakeNetwork(helpers.NewRand(), rootSk)
 
 	var wgUser sync.WaitGroup
-	wgUser.Add(sysParams.orgs * sysParams.users)
+	wgUser.Add(sysParams.Orgs * sysParams.Users)
 
-	for user := 0; user < sysParams.orgs*sysParams.users; user++ {
+	for user := 0; user < sysParams.Orgs*sysParams.Users; user++ {
 
-		if sysParams.revoke {
-			sysParams.network.users[user].requestNonRevocation()
+		if sysParams.Revoke {
+			execParams.network.users[user].requestNonRevocation()
 		}
 
 		go func(user int) {
 			defer wgUser.Done()
 
 			// first sleep uniform
-			if sysParams.frequency > 0 {
-				time.Sleep(time.Duration(rand.Intn(sysParams.frequency*1000)) * time.Millisecond)
+			if sysParams.Frequency > 0 {
+				time.Sleep(time.Duration(rand.Intn(sysParams.Frequency*1000)) * time.Millisecond)
 			}
 
-			for i := 0; i < sysParams.transactions; i++ {
-				userObj := sysParams.network.users[user]
+			for i := 0; i < sysParams.Transactions; i++ {
+				userObj := execParams.network.users[user]
 
 				// subsequent sleeps Poisson
-				if sysParams.frequency > 0 {
+				if sysParams.Frequency > 0 {
 					sleep := time.Duration((3600.0/userObj.poisson.Rand())*1000) * time.Millisecond
 					logger.Debugf("user-%d will wait %d ms", user, sleep.Milliseconds())
 					time.Sleep(sleep)
 				}
 
-				message := randomString(newRand(), 16)
+				message := helpers.RandomString(helpers.NewRand(), 16)
 				userObj.submitTransaction(message)
 			}
 
@@ -59,14 +72,14 @@ func Simulate(rootSk dac.SK, params *SystemParameters) (e error) {
 	wgUser.Wait()
 
 	// Auditing
-	if sysParams.audit {
+	if sysParams.Audit {
 
-		logger.Noticef("Audit started over %d transactions", len(sysParams.network.transactions))
+		logger.Noticef("Audit started over %d transactions", len(execParams.network.transactions))
 
-		for _, transaction := range sysParams.network.transactions {
-			authorPk := transaction.auditEnc.AuditingDecrypt(sysParams.network.auditor.sk)
+		for _, transaction := range execParams.network.transactions {
+			authorPk := transaction.auditEnc.AuditingDecrypt(execParams.network.auditor.sk)
 			recordCryptoEvent(auditDecrypt)
-			if !dac.PkEqual(authorPk, sysParams.network.users[transaction.proposal.authorID].CredentialsHolder.pk) {
+			if !dac.PkEqual(authorPk, execParams.network.users[transaction.proposal.authorID].CredentialsHolder.pk) {
 				panic("auditing failed")
 			}
 		}
@@ -75,11 +88,11 @@ func Simulate(rootSk dac.SK, params *SystemParameters) (e error) {
 
 	}
 
-	sysParams.network.stop()
+	execParams.network.stop()
 
 	logger.Noticef("Simulation completed in %d seconds", int(math.Round(time.Since(start).Seconds())))
 
-	if len(sysParams.transactionTimings) > 0 {
+	if len(execParams.transactionTimings) > 0 {
 		printStats()
 	}
 
@@ -90,24 +103,24 @@ func printStats() {
 
 	// crypto events
 	logger.Critical("Crypto events:")
-	for event, times := range sysParams.cryptoEvents {
-		logger.Criticalf("\t%-20s : %3d : (%4.1f per transaction)\n", event, times, float64(times)/float64(len(sysParams.network.transactions)))
+	for event, times := range execParams.cryptoEvents {
+		logger.Criticalf("\t%-20s : %3d : (%4.1f per transaction)\n", event, times, float64(times)/float64(len(execParams.network.transactions)))
 	}
 
 	// transaction timings
-	logger.Criticalf("For %d transactions", len(sysParams.transactionTimings))
+	logger.Criticalf("For %d transactions", len(execParams.transactionTimings))
 	printTimingBasics := func(
 		start func(TransactionTimingInfo) time.Time,
 		end func(TransactionTimingInfo) time.Time,
 		description string,
 	) {
 		var min, max, total, avg time.Duration
-		var totals = make([]time.Duration, 0, len(sysParams.transactionTimings))
+		var totals = make([]time.Duration, 0, len(execParams.transactionTimings))
 		min = time.Duration(3600000 * time.Second)
 		total = 0
 		max = 0
 
-		for _, info := range sysParams.transactionTimings {
+		for _, info := range execParams.transactionTimings {
 			elapsed := end(info).Sub(start(info))
 			if elapsed < min {
 				min = elapsed
@@ -118,7 +131,7 @@ func printStats() {
 			total += elapsed
 			totals = append(totals, elapsed)
 		}
-		avg = time.Duration(total.Nanoseconds() / int64(len(sysParams.transactionTimings)))
+		avg = time.Duration(total.Nanoseconds() / int64(len(execParams.transactionTimings)))
 
 		sort.Slice(totals, func(i, j int) bool {
 			return totals[i] < totals[j]
@@ -142,6 +155,13 @@ func printStats() {
 		func(info TransactionTimingInfo) time.Time { return info.validationEnd },
 		"validations",
 	)
+}
+
+// ExecutionParameters ...
+type ExecutionParameters struct {
+	network            *Network
+	cryptoEvents       map[CryptoEvent]int
+	transactionTimings []TransactionTimingInfo
 }
 
 // KeysHolder ...

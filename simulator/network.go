@@ -7,6 +7,7 @@ import (
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
 	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
+	"github.com/dbogatov/fabric-simulator/helpers"
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
@@ -33,10 +34,10 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 	network = &Network{
 		root: CredentialsHolder{
 			KeysHolder: KeysHolder{
-				pk: sysParams.rootPk,
+				pk: sysParams.RootPk,
 				sk: rootSk,
 			},
-			credentials: *dac.MakeCredentials(sysParams.rootPk),
+			credentials: *dac.MakeCredentials(sysParams.RootPk),
 			kind:        "root",
 			id:          0,
 		},
@@ -47,7 +48,7 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 		transactionRecordLock: &sync.Mutex{},
 		revocationAuthority:   *MakeRevocationAuthority(),
 		epoch:                 1,
-		users:                 make([]User, sysParams.orgs*sysParams.users),
+		users:                 make([]User, sysParams.Orgs*sysParams.Users),
 	}
 	credStarter := network.root.credentials.ToBytes()
 
@@ -63,22 +64,22 @@ func MakeNetwork(prg *amcl.RAND, rootSk dac.SK) (network *Network) {
 func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte, rootSk dac.SK) {
 	const orgLevel = 1
 
-	organizations := make(chan Organization, sysParams.orgs)
+	organizations := make(chan Organization, sysParams.Orgs)
 	var wgOrg sync.WaitGroup
-	wgOrg.Add(sysParams.orgs)
+	wgOrg.Add(sysParams.Orgs)
 
-	for org := 0; org < sysParams.orgs; org++ {
+	for org := 0; org < sysParams.Orgs; org++ {
 
 		go func(org int, seed []byte) {
 			defer wgOrg.Done()
 
-			prg := newRandSeed(seed)
+			prg := helpers.NewRandSeed(seed)
 
 			orgSk, orgPk := dac.GenerateKeys(prg, orgLevel)
 
 			// Credential request
 
-			rootNonce := randomBytes(prg, NonceSize)
+			rootNonce := helpers.RandomBytes(prg, helpers.NonceSize)
 			recordBandwidth("root", fmt.Sprintf("org-%d", org), Nonce{rootNonce})
 
 			credRequest := dac.MakeCredRequest(prg, orgSk, rootNonce, orgLevel)
@@ -96,13 +97,13 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 			}
 
 			credsOrg := dac.CredentialsFromBytes(credStarter)
-			if e := credsOrg.Delegate(rootSk, orgPk, attributes, prg, sysParams.ys); e != nil {
+			if e := credsOrg.Delegate(rootSk, orgPk, attributes, prg, sysParams.Ys); e != nil {
 				panic(e)
 			}
 			recordCryptoEvent(credDelegation)
 			recordBandwidth("root", fmt.Sprintf("org-%d", org), Credentials{credsOrg})
 
-			if e := credsOrg.Verify(orgSk, sysParams.rootPk, sysParams.ys); e != nil {
+			if e := credsOrg.Verify(orgSk, sysParams.RootPk, sysParams.Ys); e != nil {
 				panic(e)
 			}
 
@@ -118,7 +119,7 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 				},
 			}
 
-		}(org, randomBytes(prg, 32))
+		}(org, helpers.RandomBytes(prg, 32))
 	}
 
 	wgOrg.Wait()
@@ -134,21 +135,21 @@ func (network *Network) generateOrganizations(prg *amcl.RAND, credStarter []byte
 func (network *Network) generateUsers(prg *amcl.RAND) {
 	const userLevel = 2
 
-	users := make(chan *User, sysParams.users*sysParams.orgs)
+	users := make(chan *User, sysParams.Users*sysParams.Orgs)
 	var wgUser sync.WaitGroup
-	wgUser.Add(sysParams.orgs * sysParams.users)
+	wgUser.Add(sysParams.Orgs * sysParams.Users)
 
-	for org := 0; org < sysParams.orgs; org++ {
+	for org := 0; org < sysParams.Orgs; org++ {
 
-		for user := 0; user < sysParams.users; user++ {
+		for user := 0; user < sysParams.Users; user++ {
 
 			go func(user, org int, seed []byte) {
 
 				defer wgUser.Done()
 
-				prg := newRandSeed(seed)
+				prg := helpers.NewRandSeed(seed)
 
-				userName := fmt.Sprintf("user-%d", org*sysParams.users+user)
+				userName := fmt.Sprintf("user-%d", org*sysParams.Users+user)
 				organization := network.organizations[org]
 				orgName := fmt.Sprintf("org-%d", organization.id)
 
@@ -156,7 +157,7 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 
 				// Credential request
 
-				orgNonce := randomBytes(prg, NonceSize)
+				orgNonce := helpers.RandomBytes(prg, helpers.NonceSize)
 				recordBandwidth(orgName, userName, Nonce{orgNonce})
 
 				credRequest := dac.MakeCredRequest(prg, userSk, orgNonce, userLevel)
@@ -174,13 +175,13 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 				}
 
 				credsUser := dac.CredentialsFromBytes(organization.credentials.ToBytes())
-				if e := credsUser.Delegate(organization.sk, userPk, attributes, prg, sysParams.ys); e != nil {
+				if e := credsUser.Delegate(organization.sk, userPk, attributes, prg, sysParams.Ys); e != nil {
 					panic(e)
 				}
 				recordCryptoEvent(credDelegation)
 				recordBandwidth(orgName, userName, Credentials{credsUser})
 
-				if e := credsUser.Verify(userSk, sysParams.rootPk, sysParams.ys); e != nil {
+				if e := credsUser.Verify(userSk, sysParams.RootPk, sysParams.Ys); e != nil {
 					panic(e)
 				}
 
@@ -192,16 +193,16 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 						},
 						credentials: *credsUser,
 						kind:        "user",
-						id:          org*sysParams.users + user,
+						id:          org*sysParams.Users + user,
 					},
 					revocationPK: FP256BN.ECP_generator().Mul(userSk),
 					org:          org,
 					poisson: distuv.Poisson{
-						Lambda: 3600.0 / float64(sysParams.frequency),
+						Lambda: 3600.0 / float64(sysParams.Frequency),
 					},
 				}
 
-			}(user, org, randomBytes(prg, 32))
+			}(user, org, helpers.RandomBytes(prg, 32))
 		}
 	}
 
@@ -216,7 +217,7 @@ func (network *Network) generateUsers(prg *amcl.RAND) {
 }
 
 func (network *Network) generatePeers() {
-	for peer := 0; peer < sysParams.peers; peer++ {
+	for peer := 0; peer < sysParams.Peers; peer++ {
 		network.peers = append(network.peers, *MakePeer(peer))
 	}
 
@@ -240,7 +241,7 @@ func (network *Network) recordTransaction(tx *Transaction) {
 	network.transactions = append(network.transactions, *tx)
 
 	current := len(network.transactions)
-	total := sysParams.transactions * len(sysParams.network.users)
+	total := sysParams.Transactions * len(execParams.network.users)
 
 	logger.Noticef("%4.1f%% - transaction %d / %d", 100*float64(current)/float64(total), current, total)
 }
