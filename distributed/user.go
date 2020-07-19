@@ -142,6 +142,7 @@ func (user *User) submitTransaction(message string) {
 		Proposal:     *proposal,
 		Endorsements: endorsements,
 		Epoch:        user.epoch,
+		AuthorPK:     dac.PointToBytes(user.creds.pk),
 	}
 
 	if sysParams.Revoke {

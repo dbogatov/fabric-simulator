@@ -22,40 +22,59 @@ func SetLogger(l *logging.Logger) {
 var sysParams helpers.SystemParameters
 
 // Simulate ...
-func Simulate(rootSk, auditSk dac.SK, params *helpers.SystemParameters, root bool, organization, peer, user int, revocation bool) (e error) {
+func Simulate(rootSk, auditSk dac.SK, params *helpers.SystemParameters, root bool, organization, peer, user int, revocation, auditor bool) (e error) {
 
 	sysParams = *params
 
 	prg := helpers.NewRand()
 
 	if root {
-		logger.Info("Running as ROOT")
+		logger.Noticef("Running as ROOT")
 
 		rpcRoot := MakeRPCRoot(prg, rootSk)
 
 		runRPCServer(rpcRoot)
 	} else if organization > 0 {
-		logger.Infof("Running as ORGANIZATION %d", organization)
+		logger.Noticef("Running as ORGANIZATION %d", organization)
 
 		rpcOrg := MakeRPCOrganization(prg, organization)
 
 		runRPCServer(rpcOrg)
 	} else if peer > 0 {
-		logger.Infof("Running as PEER %d", peer)
+		logger.Noticef("Running as PEER %d", peer)
 
 		rpcPeer := MakeRPCPeer(prg, peer, auditSk)
 
 		runRPCServer(rpcPeer)
 	} else if user > 0 {
-		logger.Infof("Running as USER %d", organization)
+		logger.Noticef("Running as USER %d", organization)
 
 		MakeUser(prg, user)
 	} else if revocation {
-		logger.Info("Running as REVOCATION")
+		logger.Notice("Running as REVOCATION")
 
 		rpcRevocation := MakeRPCRevocation(prg)
 
 		runRPCServer(rpcRevocation)
+	} else if auditor {
+		logger.Notice("Running as AUDITOR")
+
+		auditCalls := make([]*rpc.Call, 0)
+		for _, peer := range sysParams.PeerRPCAddresses {
+
+			call := makeRPCCall(peer, "RPCPeer.Audit", new(int), new(bool))
+			auditCalls = append(auditCalls, call)
+		}
+
+		for _, auditCall := range auditCalls {
+
+			<-auditCall.Done
+			if auditCall.Error != nil {
+				logger.Fatal(auditCall.Error)
+			}
+		}
+
+		logger.Notice("Audit completed on all peers; ledgers cleared")
 	}
 
 	return

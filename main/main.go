@@ -239,6 +239,11 @@ func main() {
 						Value: false,
 						Usage: "whether this instance shall run as RPC revocation authority",
 					},
+					&cli.BoolFlag{
+						Name:  "auditor",
+						Value: false,
+						Usage: "if set, will send call to all peers to do audit and clear ledger",
+					},
 					&cli.IntFlag{
 						Name:  "organization",
 						Value: 0,
@@ -289,7 +294,7 @@ func main() {
 					sys, rootSk, auditSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 					sys.Peers = len(c.StringSlice("peer-addresses"))
 
-					return distributed.Simulate(rootSk, auditSk, sys, c.Bool("root"), c.Int("organization"), c.Int("peer"), c.Int("user"), c.Bool("revocation"))
+					return distributed.Simulate(rootSk, auditSk, sys, c.Bool("root"), c.Int("organization"), c.Int("peer"), c.Int("user"), c.Bool("revocation"), c.Bool("auditor"))
 				},
 			},
 		},

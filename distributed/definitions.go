@@ -57,4 +57,5 @@ type Transaction struct {
 	Endorsements       []Endorsement
 	NonRevocationProof []byte // dac.RevocationProof
 	Epoch              int
+	AuthorPK           []byte
 }

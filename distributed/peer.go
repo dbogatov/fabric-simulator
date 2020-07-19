@@ -3,6 +3,7 @@ package distributed
 import (
 	"fmt"
 	"net/rpc"
+	"sync"
 	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
@@ -20,6 +21,10 @@ type RPCPeer struct {
 	cache [][32]byte
 
 	revocationPK dac.PK
+	auditSK      dac.SK
+
+	transactions  []*Transaction
+	txRecordMutex *sync.Mutex
 }
 
 // MakeRPCPeer ...
@@ -32,13 +37,40 @@ func MakeRPCPeer(prg *amcl.RAND, id int, auditSk dac.SK) (rpcPeer *RPCPeer) {
 			sk: sk,
 			pk: pk,
 		},
-		cache: make([][32]byte, 0),
+		cache:         make([][32]byte, 0),
+		auditSK:       auditSk,
+		transactions:  make([]*Transaction, 0),
+		txRecordMutex: &sync.Mutex{},
 	}
 
 	revocationPk := makeRPCCallSync(sysParams.RevocationRPCAddress, "RPCRevocation.GetPK", new(int), new([]byte)).(*[]byte)
 	revocationAuthorityPk, _ := dac.PointFromBytes(*revocationPk)
 
 	rpcPeer.revocationPK = revocationAuthorityPk
+
+	return
+}
+
+// Audit ...
+func (peer *RPCPeer) Audit(args *int, reply *bool) (e error) {
+
+	logger.Noticef("Audit started over %d transactions", len(peer.transactions))
+
+	for _, transaction := range peer.transactions {
+		auditEnc := dac.AuditingEncryptionFromBytes(transaction.AuditEnc)
+		decryptedPK := auditEnc.AuditingDecrypt(peer.auditSK)
+		authorPK, _ := dac.PointFromBytes(transaction.AuthorPK)
+
+		if !dac.PkEqual(decryptedPK, authorPK) {
+			logger.Fatal("RPCPeer.Audit(): audit failed")
+		}
+	}
+
+	logger.Notice("Audit completed")
+
+	peer.transactions = make([]*Transaction, 0)
+
+	logger.Notice("Ledger cleared")
 
 	return
 }
@@ -94,6 +126,10 @@ func (peer *RPCPeer) Validate(args *Transaction, reply *bool) (e error) {
 	// but they are negligible in comparison to crypto
 
 	executeChaincode()
+
+	peer.txRecordMutex.Lock()
+	peer.transactions = append(peer.transactions, args)
+	peer.txRecordMutex.Unlock()
 
 	*reply = true
 
