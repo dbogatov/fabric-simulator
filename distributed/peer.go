@@ -2,10 +2,12 @@ package distributed
 
 import (
 	"fmt"
+	"net/rpc"
 	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
 	"github.com/dbogatov/fabric-amcl/amcl"
+	"github.com/dbogatov/fabric-amcl/amcl/FP256BN"
 	"github.com/dbogatov/fabric-simulator/helpers"
 )
 
@@ -16,10 +18,12 @@ type RPCPeer struct {
 	id int
 
 	cache [][32]byte
+
+	revocationPK dac.PK
 }
 
 // MakeRPCPeer ...
-func MakeRPCPeer(prg *amcl.RAND, id int) (rpcPeer *RPCPeer) {
+func MakeRPCPeer(prg *amcl.RAND, id int, auditSk dac.SK) (rpcPeer *RPCPeer) {
 	sk, pk := dac.GenerateKeys(helpers.NewRand(), 0)
 
 	rpcPeer = &RPCPeer{
@@ -29,6 +33,109 @@ func MakeRPCPeer(prg *amcl.RAND, id int) (rpcPeer *RPCPeer) {
 			pk: pk,
 		},
 		cache: make([][32]byte, 0),
+	}
+
+	revocationPk := makeRPCCallSync(sysParams.RevocationRPCAddress, "RPCRevocation.GetPK", new(int), new([]byte)).(*[]byte)
+	revocationAuthorityPk, _ := dac.PointFromBytes(*revocationPk)
+
+	rpcPeer.revocationPK = revocationAuthorityPk
+
+	return
+}
+
+// Validate ...
+func (peer *RPCPeer) Validate(args *Transaction, reply *bool) (e error) {
+
+	pkNym, _ := dac.PointFromBytes(args.Proposal.PkNym)
+	indexValue, _ := dac.PointFromBytes(args.Proposal.IndexValue)
+	indices := dac.Indices{
+		dac.Index{
+			I:         1,
+			J:         1,
+			Attribute: indexValue,
+		},
+	}
+
+	if e := dac.NymSignatureFromBytes(args.Signature).VerifyNym(sysParams.H, pkNym, args.Proposal.getMessage()); e != nil {
+		panic(e)
+	}
+
+	if len(args.Endorsements) < sysParams.Endorsements {
+		logger.Fatal("RPCPeer.Validate(): too few endorsements")
+	}
+
+	schnorr := dac.MakeSchnorr(helpers.NewRand(), false)
+	for _, endorsement := range args.Endorsements {
+		endorserPK, _ := dac.PointFromBytes(endorsement.PK)
+		endorserSignature := dac.SchnorrSignatureFromBytes(endorsement.Signature)
+		if e := schnorr.Verify(endorserPK, *endorserSignature, args.Proposal.getMessage()); e != nil {
+			logger.Fatal("RPCPeer.Validate(): endorsement is invalid")
+		}
+	}
+
+	peer.validateIdentity(args.Proposal.Author, pkNym, indices)
+
+	if sysParams.Audit {
+		auditProof := dac.AuditingProofFromBytes(args.AuditProof)
+		auditEnc := dac.AuditingEncryptionFromBytes(args.AuditEnc)
+		if e := auditProof.Verify(*auditEnc, pkNym, sysParams.AuditPK, sysParams.H); e != nil {
+			logger.Fatal("RPCPeer.Validate(): audit proof is invalid")
+		}
+	}
+
+	if sysParams.Revoke {
+		nrhProof := dac.RevocationProofFromBytes(args.NonRevocationProof)
+		if e := nrhProof.Verify(pkNym, FP256BN.NewBIGint(args.Epoch), sysParams.H, peer.revocationPK, sysParams.Ys[1]); e != nil {
+			logger.Fatal("RPCPeer.Validate(): NRH is invalid")
+		}
+	}
+
+	// somewhere here are read/write conflict check and ledger update
+	// but they are negligible in comparison to crypto
+
+	executeChaincode()
+
+	*reply = true
+
+	logger.Debug("Transaction validated!")
+
+	return
+}
+
+// Order ...
+func (peer *RPCPeer) Order(args *Transaction, reply *bool) (e error) {
+
+	pkNym, _ := dac.PointFromBytes(args.Proposal.PkNym)
+	indexValue, _ := dac.PointFromBytes(args.Proposal.IndexValue)
+	indices := dac.Indices{
+		dac.Index{
+			I:         1,
+			J:         1,
+			Attribute: indexValue,
+		},
+	}
+
+	peer.validateIdentity(args.Proposal.Author, pkNym, indices)
+
+	logger.Debug("Validate TX identity, sending to others")
+
+	// SEND TO OTHERS (including self)
+	validateCalls := make([]*rpc.Call, 0)
+	for _, other := range sysParams.PeerRPCAddresses {
+
+		call := makeRPCCall(other, "RPCPeer.Validate", args, new(bool))
+		validateCalls = append(validateCalls, call)
+	}
+
+	for _, validateCall := range validateCalls {
+
+		<-validateCall.Done
+		if validateCall.Error != nil {
+			logger.Fatal(validateCall.Error)
+		}
+		if !*validateCall.Reply.(*bool) {
+			logger.Fatal("Validation failed")
+		}
 	}
 
 	return
@@ -72,6 +179,7 @@ func (peer *RPCPeer) Endorse(args *TransactionProposal, reply *Endorsement) (e e
 	logger.Debugf("peer-%d endorsed transaction payload %s", peer.id, fmt.Sprintf("user-%d", args.AuthorID))
 	reply.Signature = schnorrSignature.ToBytes()
 	reply.PK = dac.PointToBytes(peer.keys.pk)
+	reply.ID = peer.id
 
 	return
 }
@@ -102,4 +210,5 @@ func executeChaincode() {
 type Endorsement struct {
 	Signature []byte // dac.SchnorrSignature
 	PK        []byte
+	ID        int
 }

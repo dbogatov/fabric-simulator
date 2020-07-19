@@ -22,7 +22,7 @@ func SetLogger(l *logging.Logger) {
 var sysParams helpers.SystemParameters
 
 // Simulate ...
-func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organization, peer, user int, revocation bool) (e error) {
+func Simulate(rootSk, auditSk dac.SK, params *helpers.SystemParameters, root bool, organization, peer, user int, revocation bool) (e error) {
 
 	sysParams = *params
 
@@ -43,7 +43,7 @@ func Simulate(rootSk dac.SK, params *helpers.SystemParameters, root bool, organi
 	} else if peer > 0 {
 		logger.Infof("Running as PEER %d", peer)
 
-		rpcPeer := MakeRPCPeer(prg, peer)
+		rpcPeer := MakeRPCPeer(prg, peer, auditSk)
 
 		runRPCServer(rpcPeer)
 	} else if user > 0 {
@@ -87,4 +87,24 @@ func runRPCServer(rpcEntity interface{}) {
 		log.Fatal("listen error:", e)
 	}
 	http.Serve(l, nil)
+}
+
+func makeRPCCall(address, method string, arg, reply interface{}) *rpc.Call {
+	client, err := rpc.DialHTTP("tcp", address)
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+
+	return client.Go(method, arg, reply, nil)
+}
+
+func makeRPCCallSync(address, method string, arg, reply interface{}) interface{} {
+	client, err := rpc.DialHTTP("tcp", address)
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+
+	call := client.Go(method, arg, reply, nil)
+	<-call.Done
+	return call.Reply
 }

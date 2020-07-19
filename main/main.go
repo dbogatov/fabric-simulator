@@ -68,7 +68,7 @@ func main() {
 		},
 	}
 
-	setSystemParameters := func(c *cli.Context, prg *amcl.RAND) (sysParams *helpers.SystemParameters, rootSk dac.SK) {
+	setSystemParameters := func(c *cli.Context, prg *amcl.RAND) (sysParams *helpers.SystemParameters, rootSk, auditSk dac.SK) {
 		return helpers.MakeSystemParameters(
 			logger,
 			prg,
@@ -221,7 +221,7 @@ func main() {
 					log.SetOutput(f)
 					log.Println("[")
 
-					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
+					sys, rootSk, _ := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 
 					return simulator.Simulate(rootSk, sys)
 				},
@@ -286,10 +286,10 @@ func main() {
 
 					distributed.SetLogger(logger)
 
-					sys, rootSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
+					sys, rootSk, auditSk := setSystemParameters(c, helpers.NewRandSeed([]byte{byte(c.Int("seed"))}))
 					sys.Peers = len(c.StringSlice("peer-addresses"))
 
-					return distributed.Simulate(rootSk, sys, c.Bool("root"), c.Int("organization"), c.Int("peer"), c.Int("user"), c.Bool("revocation"))
+					return distributed.Simulate(rootSk, auditSk, sys, c.Bool("root"), c.Int("organization"), c.Int("peer"), c.Int("user"), c.Bool("revocation"))
 				},
 			},
 		},

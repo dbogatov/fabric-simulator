@@ -2,7 +2,6 @@ package distributed
 
 import (
 	"fmt"
-	"log"
 	"net/rpc"
 	"time"
 
@@ -20,11 +19,8 @@ type User struct {
 	poisson distuv.Poisson
 	nrh     dac.GrothSignature
 
-	revocationRPC         *rpc.Client
 	revocationAuthorityPk dac.PK
 	revocationPk          dac.PK
-
-	peers []*rpc.Client
 }
 
 const userLevel = 2
@@ -34,23 +30,13 @@ func MakeUser(prg *amcl.RAND, id int) (user *User) {
 
 	userSk, userPk := dac.GenerateKeys(prg, userLevel)
 
-	client, err := rpc.DialHTTP("tcp", sysParams.OrgRPCAddress)
-	if err != nil {
-		log.Fatal("dialing:", err)
-	}
-
-	void := 0
-	nonce := new([]byte)
-	getNonceCall := client.Go("RPCOrganization.GetNonce", &void, nonce, nil)
-	<-getNonceCall.Done
+	nonce := makeRPCCallSync(sysParams.OrgRPCAddress, "RPCOrganization.GetNonce", new(int), new([]byte)).(*[]byte)
 
 	credRequest := &CredRequest{
 		Request: dac.MakeCredRequest(prg, userSk, *nonce, userLevel).ToBytes(),
 		ID:      id,
 	}
-	creds := new(Credentials)
-	processCredRequestCall := client.Go("RPCOrganization.ProcessCredRequest", credRequest, creds, nil)
-	<-processCredRequestCall.Done
+	creds := makeRPCCallSync(sysParams.OrgRPCAddress, "RPCOrganization.ProcessCredRequest", credRequest, new(Credentials)).(*Credentials)
 
 	credentials := dac.CredentialsFromBytes(creds.Creds)
 
@@ -58,15 +44,8 @@ func MakeUser(prg *amcl.RAND, id int) (user *User) {
 		logger.Fatal("credentials.Verify():", e)
 	}
 
-	clientRevocation, err := rpc.DialHTTP("tcp", sysParams.RevocationRPCAddress)
-	if err != nil {
-		log.Fatal("dialing:", err)
-	}
-
-	revocationPk := new([]byte)
-	getPkCall := clientRevocation.Go("RPCRevocation.GetPK", &void, revocationPk, nil)
-	<-getPkCall.Done
-	revocationPkBytes, _ := dac.PointFromBytes(*revocationPk)
+	revocationPk := makeRPCCallSync(sysParams.RevocationRPCAddress, "RPCRevocation.GetPK", new(int), new([]byte)).(*[]byte)
+	revocationAuthorityPk, _ := dac.PointFromBytes(*revocationPk)
 
 	user = &User{
 		creds: CredentialsHolder{
@@ -83,20 +62,8 @@ func MakeUser(prg *amcl.RAND, id int) (user *User) {
 			Lambda: 3600.0 / float64(sysParams.Frequency),
 		},
 
-		revocationRPC:         clientRevocation,
-		revocationAuthorityPk: revocationPkBytes,
+		revocationAuthorityPk: revocationAuthorityPk,
 		revocationPk:          FP256BN.ECP_generator().Mul(userSk),
-
-		peers: make([]*rpc.Client, 0),
-	}
-
-	for _, peer := range sysParams.PeerRPCAddresses {
-		peerClient, err := rpc.DialHTTP("tcp", peer)
-		if err != nil {
-			log.Fatal("dialing:", err)
-		}
-
-		user.peers = append(user.peers, peerClient)
 	}
 
 	logger.Info("Received credentials")
@@ -124,58 +91,40 @@ func (user *User) runTransactions() {
 
 func (user *User) submitTransaction(message string) {
 
-	if sysParams.Revoke {
-
-		void := 0
-		epoch := new(int)
-		getEpochCall := user.revocationRPC.Go("RPCRevocation.GetEpoch", &void, epoch, nil)
-		<-getEpochCall.Done
-
-		if user.epoch != *epoch {
-			logger.Debugf("user-%d (%s) detected epoch change; requesting new handle...", user.creds.id, message)
-			user.epoch = *epoch
-
-			nrr := &NonRevocationRequest{
-				PK: dac.PointToBytes(user.revocationPk),
-			}
-			nrh := new(NonRevocationHandle)
-			getNRHCall := user.revocationRPC.Go("RPCRevocation.ProcessNRR", nrr, nrh, nil)
-			<-getNRHCall.Done
-
-			handle := dac.GrothSignatureFromBytes(nrh.Handle)
-			groth := dac.MakeGroth(helpers.NewRand(), true, sysParams.Ys[1])
-
-			if e := groth.Verify(user.revocationAuthorityPk, *handle, []interface{}{user.revocationPk, FP256BN.ECP_generator().Mul(FP256BN.NewBIGint(user.epoch))}); e != nil {
-				logger.Fatal("groth.Verify():", e)
-			}
-			logger.Debug("Non-revocation handle updated")
-		} else {
-			logger.Debug("Non-revocation handle is up-to-date")
-		}
-	}
+	logger.Noticef("Transaction \"%s\" started", message)
 
 	prg := helpers.NewRand()
 
 	hash := helpers.Sha3([]byte(message))
-	endorsers := make([]int, sysParams.Endorsements)
+	endorsers := make([]int, 0)
 
-	endorser := helpers.PeerByHash(helpers.Sha3([]byte(message)), sysParams.Peers)
+	firstEndorser := helpers.PeerByHash(helpers.Sha3([]byte(message)), sysParams.Peers)
 
 	for peer := 0; peer < sysParams.Endorsements; peer++ {
-		endorsers[peer] = (endorser + peer) % sysParams.Peers
+		endorsers = append(endorsers, (firstEndorser+peer)%sysParams.Peers)
 	}
 
-	proposal, _, _ := user.MakeTransactionProposal(hash)
+	proposal, pkNym, skNym := user.MakeTransactionProposal(hash)
+	endorsements := make([]Endorsement, 0)
 
 	schnorr := dac.MakeSchnorr(prg, false)
+	endorseCalls := make([]*rpc.Call, 0)
 	for _, endorser := range endorsers {
-		// TODO parallel
+		call := makeRPCCall(sysParams.PeerRPCAddresses[endorser], "RPCPeer.Endorse", proposal, new(Endorsement))
+		endorseCalls = append(endorseCalls, call)
+	}
 
-		endorsement := new(Endorsement)
-		EndorseCall := user.peers[endorser].Go("RPCPeer.Endorse", proposal, endorsement, nil)
-		<-EndorseCall.Done
+	for _, endorseCall := range endorseCalls {
 
-		logger.Debugf("Got endorsement from %d", endorser)
+		<-endorseCall.Done
+		if endorseCall.Error != nil {
+			logger.Fatal(endorseCall.Error)
+		}
+		endorsement := endorseCall.Reply.(*Endorsement)
+
+		endorsements = append(endorsements, *endorsement)
+
+		logger.Debugf("Got endorsement from %d", endorsement.ID)
 
 		endorserPK, _ := dac.PointFromBytes(endorsement.PK)
 		endorserSignature := dac.SchnorrSignatureFromBytes(endorsement.Signature)
@@ -186,6 +135,63 @@ func (user *User) submitTransaction(message string) {
 		logger.Debugf("endorsement valid!")
 	}
 
+	txSignature := dac.SignNym(prg, pkNym, skNym, user.creds.sk, sysParams.H, proposal.getMessage())
+
+	tx := &Transaction{
+		Signature:    txSignature.ToBytes(),
+		Proposal:     *proposal,
+		Endorsements: endorsements,
+		Epoch:        user.epoch,
+	}
+
+	if sysParams.Revoke {
+		user.updateNRH()
+
+		nrhProof := dac.RevocationProve(prg, user.nrh, user.creds.sk, skNym, FP256BN.NewBIGint(user.epoch), sysParams.H, sysParams.Ys[0])
+		tx.NonRevocationProof = nrhProof.ToBytes()
+	}
+
+	if sysParams.Audit {
+
+		// fresh auditing encryption and proof every transaction
+		auditEnc, auditR := dac.AuditingEncrypt(helpers.NewRand(), sysParams.AuditPK, user.creds.pk)
+
+		tx.AuditEnc = auditEnc.ToBytes()
+		auditProof := dac.AuditingProve(prg, auditEnc, user.creds.pk, user.creds.sk, pkNym, skNym, sysParams.AuditPK, auditR, sysParams.H)
+		tx.AuditProof = auditProof.ToBytes()
+	}
+
+	orderer := helpers.PeerByHash(helpers.Sha3([]byte(fmt.Sprintf("%s-order", message))), sysParams.Peers)
+
+	makeRPCCallSync(sysParams.PeerRPCAddresses[orderer], "RPCPeer.Order", tx, new(bool))
+
+	logger.Noticef("Transaction \"%s\" ordered", message)
+}
+
+func (user *User) updateNRH() {
+
+	epoch := makeRPCCallSync(sysParams.RevocationRPCAddress, "RPCRevocation.GetEpoch", new(int), new(int)).(*int)
+
+	if user.epoch != *epoch {
+		logger.Debugf("user-%d detected epoch change; requesting new handle...", user.creds.id)
+		user.epoch = *epoch
+
+		nrr := &NonRevocationRequest{
+			PK: dac.PointToBytes(user.revocationPk),
+		}
+		nrh := makeRPCCallSync(sysParams.RevocationRPCAddress, "RPCRevocation.ProcessNRR", nrr, new(NonRevocationHandle)).(*NonRevocationHandle)
+
+		handle := dac.GrothSignatureFromBytes(nrh.Handle)
+		groth := dac.MakeGroth(helpers.NewRand(), true, sysParams.Ys[1])
+
+		if e := groth.Verify(user.revocationAuthorityPk, *handle, []interface{}{user.revocationPk, FP256BN.ECP_generator().Mul(FP256BN.NewBIGint(user.epoch))}); e != nil {
+			logger.Fatal("groth.Verify():", e)
+		}
+		user.nrh = *handle
+		logger.Debug("Non-revocation handle updated")
+	} else {
+		logger.Debug("Non-revocation handle is up-to-date")
+	}
 }
 
 // MakeTransactionProposal ...

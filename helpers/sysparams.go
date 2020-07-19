@@ -32,6 +32,7 @@ type SystemParameters struct {
 	BandwidthLocal         int // B/s
 	Revoke                 bool
 	Audit                  bool
+	AuditPK                interface{}
 	RPCPort                int
 	RootRPCAddress         string
 	OrgRPCAddress          string
@@ -47,7 +48,7 @@ func MakeSystemParameters(
 	rpcPort int,
 	rootRPCAddress, orgRPCAddress, revocationRPCAddress string,
 	peerRPCAddresses []string,
-) (sysParams *SystemParameters, rootSk dac.SK) {
+) (sysParams *SystemParameters, rootSk, auditSk dac.SK) {
 
 	sysParams = &SystemParameters{
 		Orgs:                   orgs,
@@ -79,6 +80,7 @@ func MakeSystemParameters(
 	sysParams.Ys[1] = dac.GenerateYs(true, YsNum, prg)
 
 	rootSk, sysParams.RootPk = dac.GenerateKeys(prg, 0)
+	auditSk, sysParams.AuditPK = dac.GenerateKeys(prg, 2) // user level
 
 	return
 }

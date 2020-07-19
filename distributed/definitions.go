@@ -47,3 +47,14 @@ type TransactionProposal struct {
 	PkNym      []byte
 	IndexValue []byte
 }
+
+// Transaction ...
+type Transaction struct {
+	Signature          []byte //dac.NymSignature
+	Proposal           TransactionProposal
+	AuditProof         []byte // dac.AuditingProof
+	AuditEnc           []byte // dac.AuditingEncryption
+	Endorsements       []Endorsement
+	NonRevocationProof []byte // dac.RevocationProof
+	Epoch              int
+}
