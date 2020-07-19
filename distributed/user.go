@@ -66,7 +66,7 @@ func MakeUser(prg *amcl.RAND, id int) (user *User) {
 		revocationPk:          FP256BN.ECP_generator().Mul(userSk),
 	}
 
-	logger.Info("Received credentials")
+	logger.Notice("Received credentials")
 
 	user.runTransactions()
 
@@ -80,7 +80,7 @@ func (user *User) runTransactions() {
 		// subsequent sleeps Poisson
 		if sysParams.Frequency > 0 {
 			sleep := time.Duration((3600.0/user.poisson.Rand())*1000) * time.Millisecond
-			logger.Debugf("user-%d will wait %d ms", user.creds.id, sleep.Milliseconds())
+			logger.Debugf("Will wait %d ms", sleep.Milliseconds())
 			time.Sleep(sleep)
 		}
 
@@ -90,6 +90,8 @@ func (user *User) runTransactions() {
 }
 
 func (user *User) submitTransaction(message string) {
+
+	startTime := time.Now()
 
 	logger.Noticef("Transaction \"%s\" started", message)
 
@@ -124,15 +126,13 @@ func (user *User) submitTransaction(message string) {
 
 		endorsements = append(endorsements, *endorsement)
 
-		logger.Debugf("Got endorsement from %d", endorsement.ID)
+		logger.Infof("Got endorsement from %d", endorsement.ID)
 
 		endorserPK, _ := dac.PointFromBytes(endorsement.PK)
 		endorserSignature := dac.SchnorrSignatureFromBytes(endorsement.Signature)
 		if e := schnorr.Verify(endorserPK, *endorserSignature, proposal.getMessage()); e != nil {
 			logger.Fatal("schnorr.Verify():", e)
 		}
-
-		logger.Debugf("endorsement valid!")
 	}
 
 	txSignature := dac.SignNym(prg, pkNym, skNym, user.creds.sk, sysParams.H, proposal.getMessage())
@@ -165,7 +165,9 @@ func (user *User) submitTransaction(message string) {
 
 	makeRPCCallSync(sysParams.PeerRPCAddresses[orderer], "RPCPeer.Order", tx, new(bool))
 
-	logger.Noticef("Transaction \"%s\" ordered", message)
+	endTime := time.Now()
+
+	logger.Noticef("Transaction \"%s\" completed in %d ms", message, endTime.Sub(startTime).Milliseconds())
 }
 
 func (user *User) updateNRH() {
@@ -173,7 +175,7 @@ func (user *User) updateNRH() {
 	epoch := makeRPCCallSync(sysParams.RevocationRPCAddress, "RPCRevocation.GetEpoch", new(int), new(int)).(*int)
 
 	if user.epoch != *epoch {
-		logger.Debugf("user-%d detected epoch change; requesting new handle...", user.creds.id)
+		logger.Debugf("Detected epoch change; requesting new handle...")
 		user.epoch = *epoch
 
 		nrr := &NonRevocationRequest{
