@@ -59,19 +59,20 @@ func Simulate(rootSk, auditSk dac.SK, params *helpers.SystemParameters, root boo
 	} else if auditor {
 		logger.Notice("Running as AUDITOR")
 
-		auditCalls := make([]*rpc.Call, 0)
+		auditCallClients := make([]rpcCallClient, 0)
 		for _, peer := range sysParams.PeerRPCAddresses {
 
-			call := makeRPCCall(peer, "RPCPeer.Audit", new(int), new(bool))
-			auditCalls = append(auditCalls, call)
+			callClient := makeRPCCall(peer, "RPCPeer.Audit", new(int), new(bool))
+			auditCallClients = append(auditCallClients, callClient)
 		}
 
-		for _, auditCall := range auditCalls {
+		for _, auditCallClient := range auditCallClients {
 
-			<-auditCall.Done
-			if auditCall.Error != nil {
-				logger.Fatal(auditCall.Error)
+			<-auditCallClient.call.Done
+			if auditCallClient.call.Error != nil {
+				logger.Fatal(auditCallClient.call.Error)
 			}
+			auditCallClient.client.Close()
 		}
 
 		logger.Notice("Audit completed on all peers; ledgers cleared")
@@ -108,13 +109,18 @@ func runRPCServer(rpcEntity interface{}) {
 	http.Serve(l, nil)
 }
 
-func makeRPCCall(address, method string, arg, reply interface{}) *rpc.Call {
+type rpcCallClient struct {
+	call   *rpc.Call
+	client *rpc.Client
+}
+
+func makeRPCCall(address, method string, arg, reply interface{}) rpcCallClient {
 	client, err := rpc.DialHTTP("tcp", address)
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
 
-	return client.Go(method, arg, reply, nil)
+	return rpcCallClient{client.Go(method, arg, reply, nil), client}
 }
 
 func makeRPCCallSync(address, method string, arg, reply interface{}) interface{} {
@@ -125,5 +131,7 @@ func makeRPCCallSync(address, method string, arg, reply interface{}) interface{}
 
 	call := client.Go(method, arg, reply, nil)
 	<-call.Done
+	client.Close()
+
 	return call.Reply
 }

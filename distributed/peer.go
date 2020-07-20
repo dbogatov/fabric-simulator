@@ -2,7 +2,6 @@ package distributed
 
 import (
 	"fmt"
-	"net/rpc"
 	"sync"
 	"time"
 
@@ -156,22 +155,23 @@ func (peer *RPCPeer) Order(args *Transaction, reply *bool) (e error) {
 	logger.Debug("Validate TX identity, sending to others")
 
 	// SEND TO OTHERS (including self)
-	validateCalls := make([]*rpc.Call, 0)
+	validateCallClients := make([]rpcCallClient, 0)
 	for _, other := range sysParams.PeerRPCAddresses {
 
-		call := makeRPCCall(other, "RPCPeer.Validate", args, new(bool))
-		validateCalls = append(validateCalls, call)
+		callClient := makeRPCCall(other, "RPCPeer.Validate", args, new(bool))
+		validateCallClients = append(validateCallClients, callClient)
 	}
 
-	for _, validateCall := range validateCalls {
+	for _, validateCallClient := range validateCallClients {
 
-		<-validateCall.Done
-		if validateCall.Error != nil {
-			logger.Fatal(validateCall.Error)
+		<-validateCallClient.call.Done
+		if validateCallClient.call.Error != nil {
+			logger.Fatal(validateCallClient.call.Error)
 		}
-		if !*validateCall.Reply.(*bool) {
+		if !*validateCallClient.call.Reply.(*bool) {
 			logger.Fatal("Validation failed")
 		}
+		validateCallClient.client.Close()
 	}
 
 	return

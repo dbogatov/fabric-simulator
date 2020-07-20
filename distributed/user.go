@@ -2,7 +2,6 @@ package distributed
 
 import (
 	"fmt"
-	"net/rpc"
 	"time"
 
 	"github.com/dbogatov/dac-lib/dac"
@@ -110,19 +109,20 @@ func (user *User) submitTransaction(message string) {
 	endorsements := make([]Endorsement, 0)
 
 	schnorr := dac.MakeSchnorr(prg, false)
-	endorseCalls := make([]*rpc.Call, 0)
+	endorseCallClients := make([]rpcCallClient, 0)
 	for _, endorser := range endorsers {
-		call := makeRPCCall(sysParams.PeerRPCAddresses[endorser], "RPCPeer.Endorse", proposal, new(Endorsement))
-		endorseCalls = append(endorseCalls, call)
+		callClient := makeRPCCall(sysParams.PeerRPCAddresses[endorser], "RPCPeer.Endorse", proposal, new(Endorsement))
+		endorseCallClients = append(endorseCallClients, callClient)
 	}
 
-	for _, endorseCall := range endorseCalls {
+	for _, endorseCallClient := range endorseCallClients {
 
-		<-endorseCall.Done
-		if endorseCall.Error != nil {
-			logger.Fatal(endorseCall.Error)
+		<-endorseCallClient.call.Done
+		if endorseCallClient.call.Error != nil {
+			logger.Fatal(endorseCallClient.call.Error)
 		}
-		endorsement := endorseCall.Reply.(*Endorsement)
+		endorsement := endorseCallClient.call.Reply.(*Endorsement)
+		endorseCallClient.client.Close()
 
 		endorsements = append(endorsements, *endorsement)
 
