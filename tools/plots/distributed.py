@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 from bokeh.io import output_file, show, export_svgs
-from bokeh.models import FactorRange
+from bokeh.models import FactorRange, FuncTickFormatter
 from bokeh.plotting import figure
+from bokeh.transform import factor_cmap
 
+categories = ["Extensions", "Endorsements", "Users", "Peers", "Minimal"]
 factors = [
 	("Extensions", "None"),
 	("Extensions", "Auditing"),
@@ -28,7 +30,7 @@ factors = [
 	("Minimal", "Both"),
 ]
 
-p = figure(x_range=FactorRange(*factors), plot_height=250, toolbar_location=None, tools="")
+plot = figure(x_range=FactorRange(*factors), plot_height=250, toolbar_location=None, tools="")
 
 x = [
 	1161,
@@ -53,14 +55,23 @@ x = [
 	599,
 	855
 ]
-p.vbar(x=factors, top=x, width=0.9, alpha=0.5)
 
-p.y_range.start = 0
-p.x_range.range_padding = 0.1
-p.xaxis.major_label_orientation = 1
-p.xgrid.grid_line_color = None
+# put your own colors in RGB hex format
+colors = ["#6d8ef9", "#7460e6", "#cc397e", "#eb6c2c", "#f4b23f", "#58595b"]
 
-p.output_backend = "svg"
-export_svgs(p, filename="plot.svg")
+plot.vbar(x=factors, fill_color=factor_cmap('x', palette=colors, factors=categories, end=1), top=x, width=0.9, alpha=0.5)
 
-show(p)
+plot.y_range.start = 0
+plot.x_range.range_padding = 0.1
+plot.xaxis.major_label_orientation = 1
+plot.xgrid.grid_line_color = None
+plot.yaxis.formatter = FuncTickFormatter(code="""
+	parts = tick.toString().split(".");
+	parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+	return parts.join(".");
+""")
+
+plot.output_backend = "svg"
+export_svgs(plot, filename="plot.svg")
+
+show(plot)

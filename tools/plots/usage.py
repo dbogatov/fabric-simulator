@@ -3,7 +3,6 @@
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import export_svgs
 from bokeh.models import WheelZoomTool, HoverTool, Range1d, LinearAxis, FuncTickFormatter, Legend, Label
-from bokeh.palettes import Spectral6
 
 from datetime import datetime as dt
 import json
